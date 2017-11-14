@@ -1,3 +1,4 @@
+
 # AsmGame
 Dungeon Crawler game in assembly for CS-278 
 
@@ -7,12 +8,20 @@ to move. Psuedo code below:
 -----------
 #Psuedo Code
 -----------
+`
 while playing:
+
   drawMap(map)
+
   input = getInput()
-  testInput(input)
-  dir = direction(input)
-  if(playerPosition == doorway)
-    map = otherMap    
-  updateMap(map, direction)
   
+  testInput(input)
+  
+  dir = direction(input)
+  
+  if(playerPosition == doorway)
+  
+    map = otherMap    
+  
+  updateMap(map, direction)
+`
