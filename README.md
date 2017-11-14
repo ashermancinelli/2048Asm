@@ -6,22 +6,22 @@ Goal is to have a mainloop that waits for the user to enter a direction for the 
 to move. Psuedo code below:
 
 -----------
-#Psuedo Code
+## Psuedo Code
 -----------
-`
+```
 while playing:
 
-  drawMap(map)
+    drawMap(map)
 
-  input = getInput()
+    input = getInput()
   
-  testInput(input)
+    testInput(input)
   
-  dir = direction(input)
+    dir = direction(input)
   
-  if(playerPosition == doorway)
+    if(playerPosition == doorway)
   
-  {map = otherMap}
+    {map = otherMap}
   
-  updateMap(map, direction)
-`
+    updateMap(map, direction)
+```
