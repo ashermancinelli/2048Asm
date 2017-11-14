@@ -2,6 +2,7 @@
 # AsmGame
 Dungeon Crawler game in assembly for CS-278 
 
+-----------
 ## Goals:
 1. Direction retrieval without user pressing 'enter'
 2. Smooth redrawing of map
@@ -9,7 +10,6 @@ Dungeon Crawler game in assembly for CS-278
 
 -----------
 ## Psuedo Code
------------
 ```
 while playing:
 
