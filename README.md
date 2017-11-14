@@ -21,7 +21,7 @@ while playing:
   
   if(playerPosition == doorway)
   
-    map = otherMap    
+  {map = otherMap}
   
   updateMap(map, direction)
 `
