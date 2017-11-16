@@ -6,8 +6,8 @@ INCLUDE Irvine32.inc
 .data
 
 	; These coordinates are measured from 
-	playerPosX	BYTE 19
-	playerPosY	BYTE 12
+	playerPosX	BYTE 18
+	playerPosY	BYTE 11
 	deltax		SBYTE 0
 	deltay		SBYTE 0
 
@@ -50,9 +50,9 @@ update PROC
 	.elseif AL == 100
 		mov deltax, 1
 	.elseif AL == 115
-		mov deltay, 1
-	.elseif AL == 119
 		mov deltay, -1
+	.elseif AL == 119
+		mov deltay, 1
 	.endif
 
 	mov dh, playerPosY
@@ -74,7 +74,7 @@ update PROC
 
 	mov deltax, 0
 	mov deltay, 0
-
+	ret
 update ENDP
 
 
@@ -85,12 +85,9 @@ main PROC
 	mov ecx, 255
 	
 mainLoop:
-
 	call update
-
 	loop mainLoop
 
 	exit
 main ENDP
 END main
-
