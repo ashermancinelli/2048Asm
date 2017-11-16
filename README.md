@@ -5,7 +5,7 @@ Dungeon Crawler game in assembly for CS-278
 1. Asher Mancinelli
 2. Nick Little
 3. Andrew Peacock
-4. Steven 
+4. Steven Schierman
 
 ## Goals:
 1. Direction retrieval without user pressing 'enter'
