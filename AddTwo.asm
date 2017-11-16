@@ -5,43 +5,75 @@ INCLUDE Irvine32.inc
 
 .data
 
-	_readkey  BYTE	"The read key function worked!", 0h
+	; These coordinates are measured from 
+	playerPosX	BYTE 19
+	playerPosY	BYTE 12
+	deltax		SBYTE 0
+	deltay		SBYTE 0
 
-	startRoom BYTE	"|-------------------------------|",0ah
-	row1	  BYTE	"|                               |",0ah
-	row2	  BYTE	"\                               |",0ah
-	row3	  BYTE	" \                              |",0ah
-	row4	  BYTE	"  \                             |",0ah
-	row5	  BYTE	"  /                             |",0ah
-	row6	  BYTE	" /                              |",0ah
-	row7	  BYTE	"/                               |",0ah
-	row8	  BYTE	"|                               |",0ah
-	row9	  BYTE	"|                               |",0ah
-	row10	  BYTE	"|                               |",0ah
-	row11	  BYTE	"|                               |",0ah
-	row12	  BYTE	"|-------------------------------|",0h
+	startRoom	BYTE	"|-------------------------------|",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"\                               |",0ah
+				BYTE	" \                              |",0ah
+				BYTE	"  \                             |",0ah
+				BYTE	"  /                             |",0ah
+				BYTE	" /                              |",0ah
+				BYTE	"/                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                 O             |",0ah
+				BYTE	"|-------------------------------|",0h
 
 
-	room2			BYTE	"|-------------------------------|",0ah
-	secondRow1		BYTE	"\                               |",0ah
-	secondRow2		BYTE	" \                              |",0ah
-	secondRow3		BYTE	"  \                             |",0ah
-	secondRow4		BYTE	"   \                            |",0ah
-	secondRow5		BYTE	"    \                           |",0ah
-	secondRow6		BYTE	" ____\                          |",0ah
-	secondRow7		BYTE	"|                               |",0ah
-	secondRow8		BYTE	"|                               |",0ah
-	secondRow9		BYTE	"|                               |",0ah
-	secondRow10		BYTE	"|                               |",0ah
-	secondRow11		BYTE	"|                               |",0ah
-	secondRow12		BYTE	"|-------------------------------|",0h
+	room2		BYTE	"|-------------------------------|",0ah
+				BYTE	"\                               |",0ah
+				BYTE	" \                              |",0ah
+				BYTE	"  \                             |",0ah
+				BYTE	"   \                            |",0ah
+				BYTE	"    \                           |",0ah
+				BYTE	" ____\                          |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|                               |",0ah
+				BYTE	"|-------------------------------|",0h
 
 .code
 
 update PROC
+	
+	call ReadChar
+	.if AL == 97
+		mov deltax, -1
+	.elseif AL == 100
+		mov deltax, 1
+	.elseif AL == 115
+		mov deltay, 1
+	.elseif AL == 119
+		mov deltay, -1
+	.endif
 
-	mov eax, 50
-	call WriteString
+	mov dh, playerPosY
+	mov dl, playerPosX
+	call Gotoxy
+	mov al, " "
+	call WriteChar
+
+	mov bh, deltax
+	mov bl, deltay
+
+	add playerPosX, bh
+	sub playerPosY, bl
+	mov dh, playerPosY
+	mov dl, playerPosX
+	call Gotoxy
+	mov al, "O"
+	call WriteChar
+
+	mov deltax, 0
+	mov deltay, 0
 
 update ENDP
 
@@ -49,25 +81,16 @@ update ENDP
 main PROC
 
 	mov edx, offset startRoom
+	call WriteString
 	mov ecx, 255
 	
 mainLoop:
 
-	call ReadChar
-	.if AL == 65
-		mov edx, offset _readkey
-		call WriteString
-		call Clrscr
-	.elseif AL != 65
-		mov edx, offset startRoom
-		;mov eax, 200
-		;call Delay
-		call Clrscr
-		call update
-	.endif
+	call update
 
 	loop mainLoop
 
 	exit
 main ENDP
 END main
+
