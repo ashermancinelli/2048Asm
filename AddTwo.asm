@@ -41,7 +41,42 @@ INCLUDE Irvine32.inc
 				BYTE	"|                                      |",0ah
 				BYTE	"|--------------------------------------|",0h
 
+	room3		BYTE	"                  |   | /   /           ",0ah
+				BYTE	"                  |   |/   /            ",0ah
+				BYTE	"                  |   |   /             ",0ah
+				BYTE	"                  |      /              ",0ah
+				BYTE	"                  |     /               ",0ah
+				BYTE	"__________________|    /                ",0ah
+				BYTE	"                      |                 ",0ah
+				BYTE	"__________________    |                 ",0ah
+				BYTE	"                  |   |                 ",0ah
+				BYTE	"                  |   |                 ",0ah
+				BYTE	"                  |   |                 ",0ah
+				BYTE	"                  |   |                 ",0ah
+				BYTE	"                  | O |                 ",0h
+
+
 .code
+
+changeToR3 PROC
+
+	call Clrscr
+	mov edx, offset room3
+
+	mov esi, offset room3
+	mov edi, offset currentRoom
+	mov ecx, 520
+	rep movsb
+
+	call WriteString
+	
+	mov playerPosX, 20
+	mov playerPosY, 12
+	mov deltax, 0		
+	mov deltay, 0		
+
+	ret
+changeToR3 ENDP
 
 changeToR2 PROC
 
@@ -63,25 +98,46 @@ changeToR2 PROC
 	ret
 changeToR2 ENDP
 
+changeToStart PROC
+
+	call Clrscr
+	mov edx, offset startRoom
+
+	mov esi, offset startRoom
+	mov edi, offset currentRoom
+	mov ecx, 520
+	rep movsb
+
+	call WriteString
+	
+	mov playerPosX, 18
+	mov playerPosY, 11
+	mov deltax, 0		
+	mov deltay, 0		
+
+	ret
+changeToStart ENDP
+
 movePlayer PROC
 
+	; eax = (deltay+posY) * 40
 	;-------------------;
-	mov al, deltay		; al = (deltay+posY) * 40
-	add al, playerPosY	;
+	mov al, playerPosY	;
 	add al, playerPosY	;
 	add al, playerPosY	;
 	add al, playerPosY  ;
 	add al, playerPosY	;
+	add al, deltay		; 
 	add al, deltay		;
 	add al, deltay		;
 	add al, deltay		;
 	add al, deltay		;
 						;
 	movzx eax, al		;
-	and eax, eax		;
-	and eax, eax		;
-	and eax, eax		;
-	and eax, eax		;
+	add eax, eax		;
+	add eax, eax		;
+	add eax, eax		;
+	add eax, eax		;
 	;-------------------;
 
 	mov bh, deltax
@@ -132,8 +188,12 @@ update PROC
 		mov deltay, -1
 	.elseif AL == 119
 		mov deltay, 1
-	.elseif AL == 99
+	.elseif AL == 49
+		call changeToStart
+	.elseif AL == 50
 		call changeToR2
+	.elseif AL == 51
+		call changeToR3
 	.endif
 
 	call movePlayer
