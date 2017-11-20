@@ -5,67 +5,247 @@ INCLUDE Irvine32.inc
 
 .data
 
-	_readkey  BYTE	"The read key function worked!", 0h
+	; These coordinates are measured from 
+	playerPosX	BYTE 	18
+	playerPosY	BYTE 	11
+	currentRoom BYTE	416 dup(?)
+	deltax		SBYTE	0
+	deltay		SBYTE	0
 
-	startRoom BYTE	"|-------------------------------|",0ah
-	row1	  BYTE	"|                               |",0ah
-	row2	  BYTE	"\                               |",0ah
-	row3	  BYTE	" \                              |",0ah
-	row4	  BYTE	"  \                             |",0ah
-	row5	  BYTE	"  /                             |",0ah
-	row6	  BYTE	" /                              |",0ah
-	row7	  BYTE	"/                               |",0ah
-	row8	  BYTE	"|                               |",0ah
-	row9	  BYTE	"|                               |",0ah
-	row10	  BYTE	"|                               |",0ah
-	row11	  BYTE	"|                               |",0ah
-	row12	  BYTE	"|-------------------------------|",0h
+	startRoom	BYTE	"|-----------------------------|",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                 O           |",0ah
+				BYTE	"|-----------------------------|",0h
 
 
-	room2			BYTE	"|-------------------------------|",0ah
-	secondRow1		BYTE	"\                               |",0ah
-	secondRow2		BYTE	" \                              |",0ah
-	secondRow3		BYTE	"  \                             |",0ah
-	secondRow4		BYTE	"   \                            |",0ah
-	secondRow5		BYTE	"    \                           |",0ah
-	secondRow6		BYTE	" ____\                          |",0ah
-	secondRow7		BYTE	"|                               |",0ah
-	secondRow8		BYTE	"|                               |",0ah
-	secondRow9		BYTE	"|                               |",0ah
-	secondRow10		BYTE	"|                               |",0ah
-	secondRow11		BYTE	"|                               |",0ah
-	secondRow12		BYTE	"|-------------------------------|",0h
+	room2		BYTE	"|-----------------------------|",0ah
+				BYTE	"\                             |",0ah
+				BYTE	" \                            |",0ah
+				BYTE	"  \                           |",0ah
+				BYTE	"   \                          |",0ah
+				BYTE	"    \                         |",0ah
+				BYTE	" ____\                        |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|       O                     |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|-----------------------------|",0h
+
+	room3		BYTE	"             ",186,"   ",186," /   /       ",0ah
+				BYTE	"             ",186,"   ",186,"/   /        ",0ah
+				BYTE	"             ",186,"       /         ",0ah
+				BYTE	"             ",186,"      /          ",0ah
+				BYTE	"             ",186,"     /           ",0ah
+				BYTE	"_____________",186,"    /            ",0ah
+				BYTE	"                 ",186,"             ",0ah
+				BYTE	"_____________    ",186,"             ",0ah
+				BYTE	"             ",186,"   ",186,"             ",0ah
+				BYTE	"             ",186,"   ",186,"             ",0ah
+				BYTE	"             ",186,"   ",186,"             ",0ah
+				BYTE	"             ",186,"   ",186,"             ",0ah
+				BYTE	"             ",186," O ",186,"             ",0h
+
+	room4		BYTE	"|-----------------------------|",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                             |",0ah
+				BYTE	"|                 O           |",0ah
+				BYTE	"|-----------------------------|",0h
 
 .code
 
-update PROC
+changeToR4 PROC
 
-	mov eax, 50
+	call Clrscr
+	mov edx, offset room4
+
+	mov esi, offset room4
+	mov edi, offset currentRoom
+	mov ecx, 416
+	rep movsb
+
 	call WriteString
+	
+	mov playerPosX, 18
+	mov playerPosY, 11
+	mov deltax, 0		
+	mov deltay, 0		
 
+	ret
+changeToR4 ENDP
+
+changeToR3 PROC
+
+	call Clrscr
+	mov edx, offset room3
+
+	mov esi, offset room3
+	mov edi, offset currentRoom
+	mov ecx, 416
+	rep movsb
+
+	call WriteString
+	
+	mov playerPosX, 15
+	mov playerPosY, 12
+	mov deltax, 0		
+	mov deltay, 0		
+
+	ret
+changeToR3 ENDP
+
+changeToR2 PROC
+
+	call Clrscr 
+	mov edx, offset room2
+
+	mov esi, offset room2
+	mov edi, offset currentRoom
+	mov ecx, 416
+	rep movsb
+
+	call WriteString
+	
+	mov playerPosX, 8
+	mov playerPosY, 10
+	mov deltax, 0		
+	mov deltay, 0		
+
+	ret
+changeToR2 ENDP
+
+changeToStart PROC
+
+	call Clrscr
+	mov edx, offset startRoom
+
+	mov esi, offset startRoom
+	mov edi, offset currentRoom
+	mov ecx, 416
+	rep movsb
+
+	call WriteString
+	
+	mov playerPosX, 18
+	mov playerPosY, 11
+	mov deltax, 0		
+	mov deltay, 0		
+
+	ret
+changeToStart ENDP
+
+movePlayer PROC
+
+	; eax = (deltay+posY) * 40
+	;-------------------;
+	mov al, playerPosY	;
+	add al, deltay		;
+						;
+	movzx eax, al		;
+	add eax, eax		;
+	add eax, eax		;
+	add eax, eax		;
+	add eax, eax		;
+	add eax, eax		;
+	;-------------------;
+
+	mov bh, deltax
+	add bh, playerPosX	
+
+	movzx ebx, bh
+	add ebx, eax
+
+
+	.if currentRoom[ebx] == 32 || currentRoom[ebx] == 79
+		mov dh, playerPosY
+		mov dl, playerPosX
+		call Gotoxy
+		mov al, " "
+		call WriteChar 
+
+		mov bh, deltax
+		mov bl, deltay
+
+		add playerPosX, bh
+		add playerPosY, bl
+		mov dh, playerPosY
+		mov dl, playerPosX
+		call Gotoxy
+		mov al, "O"
+		call WriteChar
+
+		mov deltax, 0
+		mov deltay, 0
+
+		mov dh, 0
+		mov dl, 0
+		call Gotoxy
+	.else
+		mov deltax, 0
+		mov deltay, 0
+	.endif
+	
+	ret
+movePlayer ENDP
+
+update PROC
+	
+	call ReadChar
+	.if AL == 97
+		mov deltax, -1
+	.elseif AL == 100
+		mov deltax, 1
+	.elseif AL == 115
+		mov deltay, 1
+	.elseif AL == 119
+		mov deltay, -1
+	.elseif AL == 49
+		call changeToStart
+	.elseif AL == 50
+		call changeToR2
+	.elseif AL == 51
+		call changeToR3
+	.elseif AL == 52
+		call changeToR4
+	.endif
+
+	call movePlayer
+
+	ret
 update ENDP
 
 
 main PROC
 
 	mov edx, offset startRoom
-	mov ecx, 255
+
+	mov esi, offset startRoom
+	mov edi, offset currentRoom
+	mov ecx, 416
+	rep movsb
+
+	call WriteString
+	mov ecx, 3255
 	
 mainLoop:
-
-	call ReadChar
-	.if AL == 65
-		mov edx, offset _readkey
-		call WriteString
-		call Clrscr
-	.elseif AL != 65
-		mov edx, offset startRoom
-		;mov eax, 200
-		;call Delay
-		call Clrscr
-		call update
-	.endif
-
+	call update
 	loop mainLoop
 
 	exit
