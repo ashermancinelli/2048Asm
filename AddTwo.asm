@@ -244,7 +244,7 @@ main PROC
 	call WriteString
 	mov ecx, 3255
 	
-mainLoop:
+mainLoop: 
 	call update
 	loop mainLoop
 
