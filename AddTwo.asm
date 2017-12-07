@@ -1,253 +1,251 @@
-TITLE Add and Subtract              (AddSubAlt.asm)
+   TITLE 2048			(2048.asm)
 
-; This program adds and subtracts 32-bit integers.
 INCLUDE Irvine32.inc
+; procedure prototypes:
+SetColor PROTO forecolor:BYTE, backcolor: BYTE
+WriteColorChar PROTO char:BYTE, forecolor:BYTE, backcolor:BYTE
+PrintRowOdd PROTO c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
+PrintRowEven PROTO c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
+PrintBoard PROTO
+RandomCell PROTO
+TakeInput PROTO
+ShiftLeft PROTO
+ShiftRight PROTO
+ShiftDown PROTO
+ShiftUp PROTO
 
 .data
+rows = 4
+columns = 4
+rowH = 4
+ranCell DWORD ?
+loops = 2
+color1 = 11		; light blue = 2
+color2 = 9		; dark blue = 4
+color3 = 5		; purple = 8
+color4 = 1		; dark purple = 16
+color5 = 12		; red = 32
+empty = 7		; gray
+empty2 = 8		; dark gray
+cells BYTE	7,7,7,7,
+			7,7,7,7,
+			7,7,7,7,
+			7,7,7,7		; initializes cell colors to an empty board
+shiftDirection BYTE ?
+key BYTE ?
+CurrentRow DWORD ?
+shiftArray DWORD 7,7,7,7
 
-	; These coordinates are measured from 
-	playerPosX	BYTE 	18
-	playerPosY	BYTE 	11
-	currentRoom BYTE	416 dup(?)
-	deltax		SBYTE	0
-	deltay		SBYTE	0
 
-	startRoom	BYTE	"|-----------------------------|",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                 O           |",0ah
-				BYTE	"|-----------------------------|",0h
-
-
-	room2		BYTE	"|-----------------------------|",0ah
-				BYTE	"\                             |",0ah
-				BYTE	" \                            |",0ah
-				BYTE	"  \                           |",0ah
-				BYTE	"   \                          |",0ah
-				BYTE	"    \                         |",0ah
-				BYTE	" ____\                        |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|       O                     |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|-----------------------------|",0h
-
-	room3		BYTE	"             ",186,"   ",186," /   /       ",0ah
-				BYTE	"             ",186,"   ",186,"/   /        ",0ah
-				BYTE	"             ",186,"       /         ",0ah
-				BYTE	"             ",186,"      /          ",0ah
-				BYTE	"             ",186,"     /           ",0ah
-				BYTE	"_____________",186,"    /            ",0ah
-				BYTE	"                 ",186,"             ",0ah
-				BYTE	"_____________    ",186,"             ",0ah
-				BYTE	"             ",186,"   ",186,"             ",0ah
-				BYTE	"             ",186,"   ",186,"             ",0ah
-				BYTE	"             ",186,"   ",186,"             ",0ah
-				BYTE	"             ",186,"   ",186,"             ",0ah
-				BYTE	"             ",186," O ",186,"             ",0h
-
-	room4		BYTE	"|-----------------------------|",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                             |",0ah
-				BYTE	"|                 O           |",0ah
-				BYTE	"|-----------------------------|",0h
+putCell BYTE 0
 
 .code
-
-changeToR4 PROC
-
-	call Clrscr
-	mov edx, offset room4
-
-	mov esi, offset room4
-	mov edi, offset currentRoom
-	mov ecx, 416
-	rep movsb
-
-	call WriteString
-	
-	mov playerPosX, 18
-	mov playerPosY, 11
-	mov deltax, 0		
-	mov deltay, 0		
-
-	ret
-changeToR4 ENDP
-
-changeToR3 PROC
-
-	call Clrscr
-	mov edx, offset room3
-
-	mov esi, offset room3
-	mov edi, offset currentRoom
-	mov ecx, 416
-	rep movsb
-
-	call WriteString
-	
-	mov playerPosX, 15
-	mov playerPosY, 12
-	mov deltax, 0		
-	mov deltay, 0		
-
-	ret
-changeToR3 ENDP
-
-changeToR2 PROC
-
-	call Clrscr 
-	mov edx, offset room2
-
-	mov esi, offset room2
-	mov edi, offset currentRoom
-	mov ecx, 416
-	rep movsb
-
-	call WriteString
-	
-	mov playerPosX, 8
-	mov playerPosY, 10
-	mov deltax, 0		
-	mov deltay, 0		
-
-	ret
-changeToR2 ENDP
-
-changeToStart PROC
-
-	call Clrscr
-	mov edx, offset startRoom
-
-	mov esi, offset startRoom
-	mov edi, offset currentRoom
-	mov ecx, 416
-	rep movsb
-
-	call WriteString
-	
-	mov playerPosX, 18
-	mov playerPosY, 11
-	mov deltax, 0		
-	mov deltay, 0		
-
-	ret
-changeToStart ENDP
-
-movePlayer PROC
-
-	; eax = (deltay+posY) * 40
-	;-------------------;
-	mov al, playerPosY	;
-	add al, deltay		;
-						;
-	movzx eax, al		;
-	add eax, eax		;
-	add eax, eax		;
-	add eax, eax		;
-	add eax, eax		;
-	add eax, eax		;
-	;-------------------;
-
-	mov bh, deltax
-	add bh, playerPosX	
-
-	movzx ebx, bh
-	add ebx, eax
-
-
-	.if currentRoom[ebx] == 32 || currentRoom[ebx] == 79
-		mov dh, playerPosY
-		mov dl, playerPosX
-		call Gotoxy
-		mov al, " "
-		call WriteChar 
-
-		mov bh, deltax
-		mov bl, deltay
-
-		add playerPosX, bh
-		add playerPosY, bl
-		mov dh, playerPosY
-		mov dl, playerPosX
-		call Gotoxy
-		mov al, "O"
-		call WriteChar
-
-		mov deltax, 0
-		mov deltay, 0
-
-		mov dh, 0
-		mov dl, 0
-		call Gotoxy
-	.else
-		mov deltax, 0
-		mov deltay, 0
-	.endif
-	
-	ret
-movePlayer ENDP
-
-update PROC
-	
-	call ReadChar
-	.if AL == 97
-		mov deltax, -1
-	.elseif AL == 100
-		mov deltax, 1
-	.elseif AL == 115
-		mov deltay, 1
-	.elseif AL == 119
-		mov deltay, -1
-	.elseif AL == 49
-		call changeToStart
-	.elseif AL == 50
-		call changeToR2
-	.elseif AL == 51
-		call changeToR3
-	.elseif AL == 52
-		call changeToR4
-	.endif
-
-	call movePlayer
-
-	ret
-update ENDP
-
-
 main PROC
+	call Randomize
 
-	mov edx, offset startRoom
+	call RandomCell
+	call RandomCell
+	call PrintBoard
 
-	mov esi, offset startRoom
-	mov edi, offset currentRoom
-	mov ecx, 416
-	rep movsb
+mainLoop:
 
-	call WriteString
-	mov ecx, 3255
-	
-mainLoop: 
-	call update
+	call TakeInput
+	;call RandomCell
+	call PrintBoard
+
 	loop mainLoop
 
-	exit
+
+    exit
 main ENDP
-END main
+
+TakeInput PROC
+	call ReadChar
+	mov key,al
+	.if key == 97				
+		call ShiftLeft
+	.elseif key == 115			
+		call ShiftDown
+	.elseif key == 100			
+		call ShiftRight
+	.elseif key == 119			
+		call ShiftUp
+	.endif
+TakeInput ENDP
+
+ShiftLeft PROC
+	mov ecx, 4
+	mov esi, 0
+
+shiftLoop:
+	pushad
+	mov CurrentRow, esi
+	mov ecx, 4
+	mov esi, 0
+	innerL:
+		mov eax, CurrentRow
+		add eax, eax
+		add eax, eax
+		add eax, esi
+		mov shiftArray[0], 7
+		mov shiftArray[4], 7
+		mov shiftArray[8], 7
+		mov shiftArray[12], 7
+		.if cells[eax] != 7
+			call append
+		.endif
+		inc esi
+	loop innerL
+	call transferArray
+	popad
+	loop shiftLoop
+	inc esi
+	ret
+ShiftLeft ENDP
+
+ShiftDown PROC
+
+ShiftDown ENDP
+
+ShiftRight PROC
+
+ShiftRight ENDP
+
+ShiftUp PROC
+
+ShiftUp ENDP
+
+PrintBoard PROC
+	mov ecx,rowH
+	L1:		; loop for printing row 1
+	INVOKE PrintRowOdd, cells, (cells+1), (cells+2), (cells+3)
+    call Crlf
+	loop L1
+
+	mov ecx,rowH
+	L2:		; loop for printing row 2
+    INVOKE PrintRowEven, (cells+4), (cells+5), (cells+6), (cells+7)
+    call Crlf
+	loop L2
+	
+	mov ecx,rowH
+	L3:		; loop for printing row 3
+	INVOKE PrintRowOdd, (cells+8), (cells+9), (cells+10), (cells+11)
+    call Crlf
+	loop L3
+
+	mov ecx,rowH
+	L4:		; loop for printing row 4
+    INVOKE PrintRowEven, (cells+12), (cells+13), (cells+14), (cells+15)
+    call Crlf
+	loop L4
+
+    INVOKE SetColor, black, black ; return to normal color
+    call Crlf
+	ret
+PrintBoard ENDP
+
+RandomCell PROC
+	mov putCell, 0
+	.repeat
+		mov eax,16
+		call RandomRange
+		mov ranCell,eax
+
+		mov eax, ranCell
+
+		.if cells[eax] == 7 || cells[eax] == 8 
+			inc putCell
+			lea esi,cells			; adds tile color to random cell
+			add esi,ranCell
+			mov BYTE PTR [esi],11	
+		.endif
+		
+	.until putCell == 1
+	ret
+RandomCell ENDP
+
+PrintRowOdd PROC c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
+    INVOKE WriteColorChar, ' ', c1, c1
+    INVOKE WriteColorChar, ' ', c1, c1
+    INVOKE WriteColorChar, ' ', c2, c2
+    INVOKE WriteColorChar, ' ', c2, c2
+	INVOKE WriteColorChar, ' ', c3, c3
+    INVOKE WriteColorChar, ' ', c3, c3
+    INVOKE WriteColorChar, ' ', c4, c4
+    INVOKE WriteColorChar, ' ', c4, c4
+    ret
+PrintRowOdd ENDP
+
+PrintRowEven PROC c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
+    INVOKE WriteColorChar, ' ', c1, c1
+    INVOKE WriteColorChar, ' ', c1, c1
+    INVOKE WriteColorChar, ' ', c2, c2
+    INVOKE WriteColorChar, ' ', c2, c2
+	INVOKE WriteColorChar, ' ', c3, c3
+    INVOKE WriteColorChar, ' ', c3, c3
+    INVOKE WriteColorChar, ' ', c4, c4
+    INVOKE WriteColorChar, ' ', c4, c4
+    ret
+PrintRowEven ENDP
+
+WriteColorChar PROC USES eax, char:BYTE, forecolor:BYTE, backcolor:BYTE 
+    INVOKE SetColor, forecolor, backcolor
+    mov al, char
+    call WriteChar
+	INVOKE SetColor, forecolor, backcolor
+    mov al, char
+    call WriteChar
+	INVOKE SetColor, forecolor, backcolor
+    mov al, char
+    call WriteChar
+	INVOKE SetColor, forecolor, backcolor
+    mov al, char
+    call WriteChar
+    ret
+WriteColorChar ENDP
+
+SetColor PROC, forecolor:BYTE, backcolor:BYTE
+    movzx eax, backcolor
+    shl eax, 4
+    or al, forecolor
+    call SetTextColor       ; from Irvine32.lib
+    ret
+SetColor ENDP
+
+transferArray PROC
+	pushad
+	mov ecx, 4
+	mov esi, 0
+	fill:
+		mov edx, shiftArray[esi*4]
+		mov ebx, CurrentRow
+		add ebx, ebx
+		add ebx, ebx
+		add ebx, esi
+		mov cells[ebx], dl
+		inc esi
+	loop fill
+	popad
+	ret
+transferArray ENDP
+
+append PROC
+	pushad
+	mov ecx, 4
+	mov esi, 0
+	appendValue:
+		.if shiftArray[esi*4] == 7
+			movzx ebx, cells[eax]
+			mov shiftArray[esi*4], ebx
+			inc esi
+			jmp outOfLoop
+		.endif
+		inc esi
+	loop appendValue
+	outOfLoop:
+	popad
+	ret
+append ENDP
+
+END MAIN
