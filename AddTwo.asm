@@ -79,6 +79,10 @@ ShiftLeft PROC
 
 shiftLoop:
 	pushad
+	mov shiftArray[0], 7
+	mov shiftArray[4], 7
+	mov shiftArray[8], 7
+	mov shiftArray[12], 7
 	mov CurrentRow, esi
 	mov ecx, 4
 	mov esi, 0
@@ -87,10 +91,6 @@ shiftLoop:
 		add eax, eax
 		add eax, eax
 		add eax, esi
-		mov shiftArray[0], 7
-		mov shiftArray[4], 7
-		mov shiftArray[8], 7
-		mov shiftArray[12], 7
 		.if cells[eax] != 7
 			call append
 		.endif
@@ -98,8 +98,8 @@ shiftLoop:
 	loop innerL
 	call transferArray
 	popad
-	loop shiftLoop
 	inc esi
+	loop shiftLoop
 	ret
 ShiftLeft ENDP
 
