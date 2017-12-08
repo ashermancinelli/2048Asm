@@ -33,7 +33,7 @@ cells BYTE	7,7,7,7,
 			7,7,7,7		; initializes cell colors to an empty board
 shiftDirection BYTE ?
 key BYTE ?
-CurrentRow DWORD ?
+rowIdx DWORD ?
 shiftArray DWORD 7,7,7,7
 
 
@@ -52,7 +52,6 @@ mainLoop:
 	call TakeInput
 	;call RandomCell
 	call PrintBoard
-
 	loop mainLoop
 
 
@@ -71,23 +70,25 @@ TakeInput PROC
 	.elseif key == 119			
 		call ShiftUp
 	.endif
+	ret
 TakeInput ENDP
 
 ShiftLeft PROC
-	mov ecx, 4
 	mov esi, 0
-
-shiftLoop:
+rowLoop:
+	cmp esi, 4
+	je done
 	pushad
 	mov shiftArray[0], 7
 	mov shiftArray[4], 7
 	mov shiftArray[8], 7
 	mov shiftArray[12], 7
-	mov CurrentRow, esi
-	mov ecx, 4
+	mov rowIdx, esi
 	mov esi, 0
-	innerL:
-		mov eax, CurrentRow
+	colLoop:
+		cmp esi, 4
+		je innerDone
+		mov eax, rowIdx
 		add eax, eax
 		add eax, eax
 		add eax, esi
@@ -95,24 +96,115 @@ shiftLoop:
 			call append
 		.endif
 		inc esi
-	loop innerL
+		jmp colLoop
+innerDone:
 	call transferArray
 	popad
 	inc esi
-	loop shiftLoop
+	jmp rowLoop
+done:
 	ret
 ShiftLeft ENDP
 
 ShiftDown PROC
-
+	mov esi, 0
+rowLoop:
+	cmp esi, 4
+	je done
+	pushad
+	mov shiftArray[0], 7
+	mov shiftArray[4], 7
+	mov shiftArray[8], 7
+	mov shiftArray[12], 7
+	mov rowIdx, esi
+	mov esi, 4
+	colLoop:
+		cmp esi, 0
+		je innerDone
+		dec esi
+		; eax = (4 * rowIdx) + esi
+		mov eax, esi
+		add eax, eax
+		add eax, eax
+		add eax, rowIdx
+		.if cells[eax] != 7
+			call appendReversed
+		.endif
+		jmp colLoop
+innerDone:
+	call transferTransposedArray
+	popad
+	inc esi
+	jmp rowLoop
+done:
+	ret
 ShiftDown ENDP
 
 ShiftRight PROC
-
+	mov esi, 0
+rowLoop:
+	cmp esi, 4
+	je done
+	pushad
+	mov shiftArray[0], 7
+	mov shiftArray[4], 7
+	mov shiftArray[8], 7
+	mov shiftArray[12], 7
+	mov rowIdx, esi
+	mov esi, 4
+	colLoop:
+		cmp esi, 0
+		je innerDone
+		dec esi
+		; eax = (4 * rowIdx) + esi
+		mov eax, rowIdx
+		add eax, eax
+		add eax, eax
+		add eax, esi
+		.if cells[eax] != 7
+			call appendReversed
+		.endif
+		jmp colLoop
+innerDone:
+	call transferArray
+	popad
+	inc esi
+	jmp rowLoop
+done:
+	ret
 ShiftRight ENDP
 
 ShiftUp PROC
-
+	mov esi, 0
+rowLoop:
+	cmp esi, 4
+	je done
+	pushad
+	mov shiftArray[0], 7
+	mov shiftArray[4], 7
+	mov shiftArray[8], 7
+	mov shiftArray[12], 7
+	mov rowIdx, esi
+	mov esi, 0
+	colLoop:
+		cmp esi, 4
+		je innerDone
+		mov eax, esi
+		add eax, eax
+		add eax, eax
+		add eax, rowIdx
+		.if cells[eax] != 7
+			call append
+		.endif
+		inc esi
+		jmp colLoop
+innerDone:
+	call transferTransposedArray
+	popad
+	inc esi
+	jmp rowLoop
+done:
+	ret
 ShiftUp ENDP
 
 PrintBoard PROC
@@ -219,7 +311,7 @@ transferArray PROC
 	mov esi, 0
 	fill:
 		mov edx, shiftArray[esi*4]
-		mov ebx, CurrentRow
+		mov ebx, rowIdx
 		add ebx, ebx
 		add ebx, ebx
 		add ebx, esi
@@ -230,6 +322,23 @@ transferArray PROC
 	ret
 transferArray ENDP
 
+transferTransposedArray PROC
+	pushad
+	mov ecx, 4
+	mov esi, 0
+	fill:
+		mov edx, shiftArray[esi*4]
+		mov ebx, esi
+		add ebx, ebx
+		add ebx, ebx
+		add ebx, rowIdx
+		mov cells[ebx], dl
+		inc esi
+	loop fill
+	popad
+	ret
+transferTransposedArray ENDP
+
 append PROC
 	pushad
 	mov ecx, 4
@@ -238,7 +347,6 @@ append PROC
 		.if shiftArray[esi*4] == 7
 			movzx ebx, cells[eax]
 			mov shiftArray[esi*4], ebx
-			inc esi
 			jmp outOfLoop
 		.endif
 		inc esi
@@ -247,5 +355,23 @@ append PROC
 	popad
 	ret
 append ENDP
+
+appendReversed PROC
+	pushad
+	mov esi, 4
+	appendValue:
+		cmp esi, 0
+		je outOfLoop
+		dec esi
+		.if shiftArray[esi*4] == 7
+			movzx ebx, cells[eax]
+			mov shiftArray[esi*4], ebx
+			jmp outOfLoop
+		.endif
+	loop appendValue
+	outOfLoop:
+	popad
+	ret
+appendReversed ENDP
 
 END MAIN
