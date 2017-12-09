@@ -4,8 +4,7 @@ INCLUDE Irvine32.inc
 ; procedure prototypes:
 SetColor PROTO forecolor:BYTE, backcolor: BYTE
 WriteColorChar PROTO char:BYTE, forecolor:BYTE, backcolor:BYTE
-PrintRowOdd PROTO c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
-PrintRowEven PROTO c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
+PrintLine PROTO idx:BYTE
 PrintBoard PROTO
 RandomCell PROTO
 TakeInput PROTO
@@ -27,10 +26,14 @@ color4 = 1		; dark purple = 16
 color5 = 12		; red = 32
 empty = 7		; gray
 empty2 = 8		; dark gray
-cells BYTE	7,7,7,7,
-			7,7,7,7,
-			7,7,7,7,
-			7,7,7,7		; initializes cell colors to an empty board
+cellColors BYTE	7,11,7,7,
+				7,7,7,7,
+				7,7,11,7,
+				7,7,7,7		; initializes cell colors to default
+cellVals DWORD	0,2,0,0,
+				0,0,0,0,
+				0,0,2,0,
+				0,0,0,0		; initializes cell values to default
 shiftDirection BYTE ?
 key BYTE ?
 rowIdx DWORD ?
@@ -42,9 +45,6 @@ putCell BYTE 0
 .code
 main PROC
 	call Randomize
-
-	call RandomCell
-	call RandomCell
 	call PrintBoard
 
 mainLoop:
@@ -92,7 +92,7 @@ rowLoop:
 		add eax, eax
 		add eax, eax
 		add eax, esi
-		.if cells[eax] != 7
+		.if cellColors[eax] != 7
 			call append
 		.endif
 		inc esi
@@ -127,7 +127,7 @@ rowLoop:
 		add eax, eax
 		add eax, eax
 		add eax, rowIdx
-		.if cells[eax] != 7
+		.if cellColors[eax] != 7
 			call appendReversed
 		.endif
 		jmp colLoop
@@ -161,7 +161,7 @@ rowLoop:
 		add eax, eax
 		add eax, eax
 		add eax, esi
-		.if cells[eax] != 7
+		.if cellColors[eax] != 7
 			call appendReversed
 		.endif
 		jmp colLoop
@@ -193,7 +193,7 @@ rowLoop:
 		add eax, eax
 		add eax, eax
 		add eax, rowIdx
-		.if cells[eax] != 7
+		.if cellColors[eax] != 7
 			call append
 		.endif
 		inc esi
@@ -210,25 +210,25 @@ ShiftUp ENDP
 PrintBoard PROC
 	mov ecx,rowH
 	L1:		; loop for printing row 1
-	INVOKE PrintRowOdd, cells, (cells+1), (cells+2), (cells+3)
+	INVOKE PrintLine, 0
     call Crlf
 	loop L1
 
 	mov ecx,rowH
 	L2:		; loop for printing row 2
-    INVOKE PrintRowEven, (cells+4), (cells+5), (cells+6), (cells+7)
+    INVOKE PrintLine, 4
     call Crlf
 	loop L2
 	
 	mov ecx,rowH
 	L3:		; loop for printing row 3
-	INVOKE PrintRowOdd, (cells+8), (cells+9), (cells+10), (cells+11)
+	INVOKE PrintLine, 8
     call Crlf
 	loop L3
 
 	mov ecx,rowH
 	L4:		; loop for printing row 4
-    INVOKE PrintRowEven, (cells+12), (cells+13), (cells+14), (cells+15)
+    INVOKE PrintLine, 12
     call Crlf
 	loop L4
 
@@ -246,9 +246,9 @@ RandomCell PROC
 
 		mov eax, ranCell
 
-		.if cells[eax] == 7 || cells[eax] == 8 
+		.if cellColors[eax] == 7 || cellColors[eax] == 8 
 			inc putCell
-			lea esi,cells			; adds tile color to random cell
+			lea esi,cellColors			; adds tile color to random cell
 			add esi,ranCell
 			mov BYTE PTR [esi],11	
 		.endif
@@ -257,29 +257,18 @@ RandomCell PROC
 	ret
 RandomCell ENDP
 
-PrintRowOdd PROC c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
-    INVOKE WriteColorChar, ' ', c1, c1
-    INVOKE WriteColorChar, ' ', c1, c1
-    INVOKE WriteColorChar, ' ', c2, c2
-    INVOKE WriteColorChar, ' ', c2, c2
-	INVOKE WriteColorChar, ' ', c3, c3
-    INVOKE WriteColorChar, ' ', c3, c3
-    INVOKE WriteColorChar, ' ', c4, c4
-    INVOKE WriteColorChar, ' ', c4, c4
+PrintLine PROC idx:BYTE
+	movzx ebx, idx
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+0]
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+0]
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+1]
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+1]
+	INVOKE WriteColorChar, ' ', '0', cellColors[ebx+2]
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+2]
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+3]
+    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+3]
     ret
-PrintRowOdd ENDP
-
-PrintRowEven PROC c1:BYTE, c2:BYTE, c3:BYTE, c4:BYTE
-    INVOKE WriteColorChar, ' ', c1, c1
-    INVOKE WriteColorChar, ' ', c1, c1
-    INVOKE WriteColorChar, ' ', c2, c2
-    INVOKE WriteColorChar, ' ', c2, c2
-	INVOKE WriteColorChar, ' ', c3, c3
-    INVOKE WriteColorChar, ' ', c3, c3
-    INVOKE WriteColorChar, ' ', c4, c4
-    INVOKE WriteColorChar, ' ', c4, c4
-    ret
-PrintRowEven ENDP
+PrintLine ENDP
 
 WriteColorChar PROC USES eax, char:BYTE, forecolor:BYTE, backcolor:BYTE 
     INVOKE SetColor, forecolor, backcolor
@@ -315,7 +304,7 @@ transferArray PROC
 		add ebx, ebx
 		add ebx, ebx
 		add ebx, esi
-		mov cells[ebx], dl
+		mov cellColors[ebx], dl
 		inc esi
 	loop fill
 	popad
@@ -332,7 +321,7 @@ transferTransposedArray PROC
 		add ebx, ebx
 		add ebx, ebx
 		add ebx, rowIdx
-		mov cells[ebx], dl
+		mov cellColors[ebx], dl
 		inc esi
 	loop fill
 	popad
@@ -345,7 +334,7 @@ append PROC
 	mov esi, 0
 	appendValue:
 		.if shiftArray[esi*4] == 7
-			movzx ebx, cells[eax]
+			movzx ebx, cellColors[eax]
 			mov shiftArray[esi*4], ebx
 			jmp outOfLoop
 		.endif
@@ -364,7 +353,7 @@ appendReversed PROC
 		je outOfLoop
 		dec esi
 		.if shiftArray[esi*4] == 7
-			movzx ebx, cells[eax]
+			movzx ebx, cellColors[eax]
 			mov shiftArray[esi*4], ebx
 			jmp outOfLoop
 		.endif

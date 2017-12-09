@@ -1,8 +1,8 @@
-﻿Build started 12/8/2017 2:59:38 PM.
+﻿Build started 12/8/2017 6:40:20 PM.
      1>Project "C:\Users\Andrew\repos\2048Asm\Project.vcxproj" on node 2 (Build target(s)).
      1>_MASM:
          Assembling AddTwo.asm...
-         cmd.exe /C "C:\Users\Andrew\AppData\Local\Temp\tmpc587155d63024c2895a4cd38d34e9298.cmd"
+         cmd.exe /C "C:\Users\Andrew\AppData\Local\Temp\tmp866a8eb9f5904a24894dd94585017c3b.cmd"
          ml.exe /c /nologo /Sg /Zi /Fo"Debug\AddTwo.obj" /Fl"Project.lst" /I "c:\Irvine" /W3 /errorReport:prompt  /TaAddTwo.asm
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Andrew\repos\2048Asm\Debug\Project.exe" /NOLOGO /LIBPATH:c:\Irvine user32.lib irvine32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /Debug /PDB:"C:\Users\Andrew\repos\2048Asm\Debug\Project.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE:NO /IMPLIB:"C:\Users\Andrew\repos\2048Asm\Debug\Project.lib" /MACHINE:X86 /SAFESEH:NO Debug\AddTwo.obj
@@ -11,4 +11,4 @@
 
 Build succeeded.
 
-Time Elapsed 00:00:00.50
+Time Elapsed 00:00:01.25
