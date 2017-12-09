@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 14.00.23026.0	    12/08/17 18:40:21
+Microsoft (R) Macro Assembler Version 14.00.24210.0	    12/08/17 21:43:15
 2048			(2048.asm			     Page 1 - 1
 
 
@@ -33,6 +33,10 @@ Microsoft (R) Macro Assembler Version 14.00.23026.0	    12/08/17 18:40:21
 				ShiftRight PROTO
 				ShiftDown PROTO
 				ShiftUp PROTO
+				MergeUp PROTO
+				MergeDown PROTO
+				MergeRight PROTO
+				MergeLeft PROTO
 
  00000000			.data
  = 00000004			rows = 4
@@ -45,6 +49,9 @@ Microsoft (R) Macro Assembler Version 14.00.23026.0	    12/08/17 18:40:21
  = 00000005			color3 = 5		; purple = 8
  = 00000001			color4 = 1		; dark purple = 16
  = 0000000C			color5 = 12		; red = 32
+ = 00000002			color6 = 2
+ = 00000004			color7 = 4	
+ = 00000008			color8 = 8	
  = 00000007			empty = 7		; gray
  = 00000008			empty2 = 8		; dark gray
  00000004 07 0B 07 07 07	cellColors BYTE	7,11,7,7,
@@ -80,501 +87,785 @@ Microsoft (R) Macro Assembler Version 14.00.23026.0	    12/08/17 18:40:21
 	   00000007
 	   00000007
 	   00000007
+ 0000006A 00000000		colIndex DWORD ?
+ 0000006E 43 6F 6E 67 72	winString BYTE "Congradulations! YOU WON!!!", 0h
+	   61 64 75 6C 61
+	   74 69 6F 6E 73
+	   21 20 59 4F 55
+	   20 57 4F 4E 21
+	   21 21 00
+ 0000008A 00			gameOver BYTE 0
 
-
- 0000006A 00			putCell BYTE 0
+ 0000008B 00			putCell BYTE 0
 
  00000000			.code
  00000000			main PROC
  00000000  E8 00000000 E		call Randomize
- 00000005  E8 00000202			call PrintBoard
+ 00000005  E8 0000047D			call PrintBoard
 
  0000000A			mainLoop:
 
- 0000000A  E8 0000000E			call TakeInput
-					;call RandomCell
- 0000000F  E8 000001F8			call PrintBoard
- 00000014  E2 F4			loop mainLoop
+ 0000000A  E8 0000001E			call TakeInput
+					.if gameOver == 1
+ 0000000F  80 3D 0000008A R
+	   01		   *	    cmp    gameOver, 001h
+ 00000016  75 02	   *	    jne    @C0001
+ 00000018  EB 0C				jmp done
+					.endif
+ 0000001A		   *@C0001:
+ 0000001A  E8 000004C3			call RandomCell
+ 0000001F  E8 00000463			call PrintBoard
+ 00000024  E2 E4			loop mainLoop
 
+ 00000026			done:
 
 				    exit
- 00000016  6A 00	   *	    push   +000000000h
- 00000018  E8 00000000 E   *	    call   ExitProcess
- 0000001D			main ENDP
+ 00000026  6A 00	   *	    push   +000000000h
+ 00000028  E8 00000000 E   *	    call   ExitProcess
+ 0000002D			main ENDP
 
- 0000001D			TakeInput PROC
- 0000001D  E8 00000000 E		call ReadChar
- 00000022  A2 00000055 R		mov key,al
+ 0000002D			TakeInput PROC
+ 0000002D  E8 00000000 E		call ReadChar
+ 00000032  A2 00000055 R		mov key,al
 					.if key == 97				
- 00000027  80 3D 00000055 R
-	   61		   *	    cmp    key, 061h
- 0000002E  75 07	   *	    jne    @C0001
- 00000030  E8 00000031				call ShiftLeft
-					.elseif key == 115			
- 00000035  EB 2E	   *	    jmp    @C0003
- 00000037		   *@C0001:
  00000037  80 3D 00000055 R
+	   61		   *	    cmp    key, 061h
+ 0000003E  75 11	   *	    jne    @C0003
+ 00000040  E8 0000029C				call ShiftLeft
+ 00000045  E8 00000054				call MergeLeft
+ 0000004A  E8 00000292				call ShiftLeft
+					.elseif key == 115			
+ 0000004F  EB 4C	   *	    jmp    @C0005
+ 00000051		   *@C0003:
+ 00000051  80 3D 00000055 R
 	   73		   *	    cmp    key, 073h
- 0000003E  75 07	   *	    jne    @C0004
- 00000040  E8 0000008A				call ShiftDown
+ 00000058  75 11	   *	    jne    @C0006
+ 0000005A  E8 000002EB				call ShiftDown
+ 0000005F  E8 00000166				call MergeVertical
+ 00000064  E8 000002E1				call ShiftDown
 					.elseif key == 100			
- 00000045  EB 1E	   *	    jmp    @C0006
- 00000047		   *@C0004:
- 00000047  80 3D 00000055 R
+ 00000069  EB 32	   *	    jmp    @C0008
+ 0000006B		   *@C0006:
+ 0000006B  80 3D 00000055 R
 	   64		   *	    cmp    key, 064h
- 0000004E  75 07	   *	    jne    @C0007
- 00000050  E8 000000E4				call ShiftRight
+ 00000072  75 11	   *	    jne    @C0009
+ 00000074  E8 0000033B				call ShiftRight
+ 00000079  E8 00000020				call MergeLeft
+ 0000007E  E8 00000331				call ShiftRight
 					.elseif key == 119			
- 00000055  EB 0E	   *	    jmp    @C0009
- 00000057		   *@C0007:
- 00000057  80 3D 00000055 R
+ 00000083  EB 18	   *	    jmp    @C000B
+ 00000085		   *@C0009:
+ 00000085  80 3D 00000055 R
 	   77		   *	    cmp    key, 077h
- 0000005E  75 05	   *	    jne    @C000A
- 00000060  E8 0000013D				call ShiftUp
+ 0000008C  75 0F	   *	    jne    @C000C
+ 0000008E  E8 0000038A				call ShiftUp
+ 00000093  E8 00000132				call MergeVertical
+ 00000098  E8 00000380				call ShiftUp
 					.endif
- 00000065		   *@C000A:
- 00000065		   *@C0009:
- 00000065		   *@C0006:
- 00000065		   *@C0003:
- 00000065  C3				ret
- 00000066			TakeInput ENDP
+ 0000009D		   *@C000C:
+ 0000009D		   *@C000B:
+ 0000009D		   *@C0008:
+ 0000009D		   *@C0005:
+ 0000009D  C3				ret
+ 0000009E			TakeInput ENDP
 
- 00000066			ShiftLeft PROC
- 00000066  BE 00000000			mov esi, 0
- 0000006B			rowLoop:
- 0000006B  83 FE 04			cmp esi, 4
- 0000006E  74 5E			je done
- 00000070  60				pushad
- 00000071  C7 05 0000005A R		mov shiftArray[0], 7
-	   00000007
- 0000007B  C7 05 0000005E R		mov shiftArray[4], 7
-	   00000007
- 00000085  C7 05 00000062 R		mov shiftArray[8], 7
-	   00000007
- 0000008F  C7 05 00000066 R		mov shiftArray[12], 7
-	   00000007
- 00000099  89 35 00000056 R		mov rowIdx, esi
- 0000009F  BE 00000000			mov esi, 0
- 000000A4				colLoop:
- 000000A4  83 FE 04				cmp esi, 4
- 000000A7  74 1C				je innerDone
- 000000A9  A1 00000056 R			mov eax, rowIdx
- 000000AE  03 C0				add eax, eax
- 000000B0  03 C0				add eax, eax
- 000000B2  03 C6				add eax, esi
-						.if cellColors[eax] != 7
- 000000B4  80 B8 00000004 R
-	   07		   *	    cmp    cellColors + [eax], 007h
- 000000BB  74 05	   *	    je	@C000C
- 000000BD  E8 00000341					call append
+ 0000009E			MergeLeft PROC
+ 0000009E  BE 00000000			mov esi, 0
+ 000000A3			rowLoop:
+ 000000A3  83 FE 04			cmp esi, 4
+ 000000A6  0F 84 0000011D		je done
+ 000000AC  60				pushad
+
+ 000000AD  89 35 00000056 R		mov rowIdx, esi
+ 000000B3  BE 00000000			mov esi, 0
+ 000000B8				colLoop:
+ 000000B8  83 FE 03				cmp esi, 3
+ 000000BB  0F 84 00000101			je innerDone
+
+ 000000C1  A1 00000056 R			mov eax, rowIdx
+ 000000C6  03 C0				add eax, eax
+ 000000C8  03 C0				add eax, eax
+ 000000CA  03 C6				add eax, esi
+
+ 000000CC  8A 98 00000005 R			mov bl, cellColors[eax+1]
+						.if cellColors[eax] == bl	;cellColors[eax+1]
+ 000000D2  38 98 00000004 R *	    cmp    cellColors + [eax], bl
+ 000000D8  0F 85 000000DE  *	    jne    @C000E
+							.if cellColors[eax] == color1
+ 000000DE  80 B8 00000004 R
+	   0B		   *	    cmp    cellColors + [eax], color1
+ 000000E5  75 13	   *	    jne    @C0010
+ 000000E7  C6 80 00000004 R					mov cellColors[eax], color2
+	   09
+ 000000EE  C6 80 00000005 R					mov cellColors[eax+1], 7
+	   07
+							.elseif cellColors[eax] == color2
+ 000000F5  E9 000000C2	   *	    jmp    @C0012
+ 000000FA		   *@C0010:
+ 000000FA  80 B8 00000004 R
+	   09		   *	    cmp    cellColors + [eax], color2
+ 00000101  75 13	   *	    jne    @C0013
+ 00000103  C6 80 00000004 R					mov cellColors[eax], color3
+	   05
+ 0000010A  C6 80 00000005 R					mov cellColors[eax+1], 7
+	   07
+							.elseif cellColors[eax] == color3
+ 00000111  E9 000000A6	   *	    jmp    @C0015
+ 00000116		   *@C0013:
+ 00000116  80 B8 00000004 R
+	   05		   *	    cmp    cellColors + [eax], color3
+ 0000011D  75 26	   *	    jne    @C0016
+								;mov cellColors[eax], color4
+								;mov cellColors[eax+1], 7
+								invoke SetColor, white, black
+ 0000011F  6A 00	   *	    push   +000000000h
+ 00000121  6A 0F	   *	    push   +00000000Fh
+ 00000123  E8 000004EE	   *	    call   SetColor
+ 00000128  E8 00000000 E					call clrscr
+ 0000012D  BA 0000006E R					mov edx, offset winString
+ 00000132  E8 00000000 E					call WriteString
+ 00000137  E8 00000000 E					call crlf
+ 0000013C  C6 05 0000008A R					mov gameOver, 1
+	   01
+
+							.elseif cellColors[eax] == color4
+ 00000143  EB 77	   *	    jmp    @C0018
+ 00000145		   *@C0016:
+ 00000145  80 B8 00000004 R
+	   01		   *	    cmp    cellColors + [eax], color4
+ 0000014C  75 10	   *	    jne    @C0019
+ 0000014E  C6 80 00000004 R					mov cellColors[eax], color5
+	   0C
+ 00000155  C6 80 00000005 R					mov cellColors[eax+1], 7
+	   07
+							.elseif cellColors[eax] == color5
+ 0000015C  EB 5E	   *	    jmp    @C001B
+ 0000015E		   *@C0019:
+ 0000015E  80 B8 00000004 R
+	   0C		   *	    cmp    cellColors + [eax], color5
+ 00000165  75 10	   *	    jne    @C001C
+ 00000167  C6 80 00000004 R					mov cellColors[eax], color6
+	   02
+ 0000016E  C6 80 00000005 R					mov cellColors[eax+1], 7
+	   07
+							.elseif cellColors[eax] == color6
+ 00000175  EB 45	   *	    jmp    @C001E
+ 00000177		   *@C001C:
+ 00000177  80 B8 00000004 R
+	   02		   *	    cmp    cellColors + [eax], color6
+ 0000017E  75 10	   *	    jne    @C001F
+ 00000180  C6 80 00000004 R					mov cellColors[eax], color7
+	   04
+ 00000187  C6 80 00000005 R					mov cellColors[eax+1], 7
+	   07
+							.elseif cellColors[eax] == color7
+ 0000018E  EB 2C	   *	    jmp    @C0021
+ 00000190		   *@C001F:
+ 00000190  80 B8 00000004 R
+	   04		   *	    cmp    cellColors + [eax], color7
+ 00000197  75 10	   *	    jne    @C0022
+ 00000199  C6 80 00000004 R					mov cellColors[eax], color8
+	   08
+ 000001A0  C6 80 00000005 R					mov cellColors[eax+1], 7
+	   07
+							.elseif cellColors[eax] == color8
+ 000001A7  EB 13	   *	    jmp    @C0024
+ 000001A9		   *@C0022:
+ 000001A9  80 B8 00000004 R
+	   08		   *	    cmp    cellColors + [eax], color8
+ 000001B0  75 0A	   *	    jne    @C0025
+ 000001B2  BA 0000006E R					mov edx, offset winString
+ 000001B7  E8 00000000 E					call WriteString
+							.endif
 						.endif
- 000000C2		   *@C000C:
- 000000C2  46					inc esi
- 000000C3  EB DF				jmp colLoop
- 000000C5			innerDone:
- 000000C5  E8 000002E7			call transferArray
- 000000CA  61				popad
- 000000CB  46				inc esi
- 000000CC  EB 9D			jmp rowLoop
- 000000CE			done:
- 000000CE  C3				ret
- 000000CF			ShiftLeft ENDP
+ 000001BC		   *@C0025:
+ 000001BC		   *@C0024:
+ 000001BC		   *@C0021:
+ 000001BC		   *@C001E:
+ 000001BC		   *@C001B:
+ 000001BC		   *@C0018:
+ 000001BC		   *@C0015:
+ 000001BC		   *@C0012:
+ 000001BC		   *@C000E:
 
- 000000CF			ShiftDown PROC
- 000000CF  BE 00000000			mov esi, 0
- 000000D4			rowLoop:
- 000000D4  83 FE 04			cmp esi, 4
- 000000D7  74 5F			je done
- 000000D9  60				pushad
- 000000DA  C7 05 0000005A R		mov shiftArray[0], 7
+ 000001BC  46					inc esi
+ 000001BD  E9 FFFFFEF6				jmp colLoop
+ 000001C2			innerDone:
+ 000001C2  61				popad
+ 000001C3  46				inc esi
+ 000001C4  E9 FFFFFEDA			jmp rowLoop
+ 000001C9			done:
+ 000001C9  C3				ret
+ 000001CA			MergeLeft ENDP
+
+
+ 000001CA			MergeVertical PROC
+
+ 000001CA  BE 00000000			mov esi, 0
+ 000001CF			rowLoop:
+ 000001CF  83 FE 04			cmp esi, 4
+ 000001D2  0F 84 00000108		je done
+ 000001D8  60				pushad
+
+ 000001D9  89 35 0000006A R		mov colIndex, esi
+ 000001DF  BE 00000000			mov esi, 0
+ 000001E4				colLoop:
+ 000001E4  83 FE 03				cmp esi, 3
+ 000001E7  0F 84 000000EC			je innerDone
+
+ 000001ED  8B C6				mov eax, esi
+ 000001EF  03 C0				add eax, eax
+ 000001F1  03 C0				add eax, eax
+ 000001F3  03 05 0000006A R			add eax, colIndex
+
+ 000001F9  8A 98 00000008 R			mov bl, cellColors[eax+4]
+						.if cellColors[eax] == bl	;cellColors[eax+4]
+ 000001FF  38 98 00000004 R *	    cmp    cellColors + [eax], bl
+ 00000205  0F 85 000000C8  *	    jne    @C0027
+							.if cellColors[eax] == color1
+ 0000020B  80 B8 00000004 R
+	   0B		   *	    cmp    cellColors + [eax], color1
+ 00000212  75 13	   *	    jne    @C0029
+ 00000214  C6 80 00000004 R					mov cellColors[eax], color2
+	   09
+ 0000021B  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color2
+ 00000222  E9 000000AC	   *	    jmp    @C002B
+ 00000227		   *@C0029:
+ 00000227  80 B8 00000004 R
+	   09		   *	    cmp    cellColors + [eax], color2
+ 0000022E  75 13	   *	    jne    @C002C
+ 00000230  C6 80 00000004 R					mov cellColors[eax], color3
+	   05
+ 00000237  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color3
+ 0000023E  E9 00000090	   *	    jmp    @C002E
+ 00000243		   *@C002C:
+ 00000243  80 B8 00000004 R
+	   05		   *	    cmp    cellColors + [eax], color3
+ 0000024A  75 10	   *	    jne    @C002F
+ 0000024C  C6 80 00000004 R					mov cellColors[eax], color4
+	   01
+ 00000253  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color4
+ 0000025A  EB 77	   *	    jmp    @C0031
+ 0000025C		   *@C002F:
+ 0000025C  80 B8 00000004 R
+	   01		   *	    cmp    cellColors + [eax], color4
+ 00000263  75 10	   *	    jne    @C0032
+ 00000265  C6 80 00000004 R					mov cellColors[eax], color5
+	   0C
+ 0000026C  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color5
+ 00000273  EB 5E	   *	    jmp    @C0034
+ 00000275		   *@C0032:
+ 00000275  80 B8 00000004 R
+	   0C		   *	    cmp    cellColors + [eax], color5
+ 0000027C  75 10	   *	    jne    @C0035
+ 0000027E  C6 80 00000004 R					mov cellColors[eax], color6
+	   02
+ 00000285  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color6
+ 0000028C  EB 45	   *	    jmp    @C0037
+ 0000028E		   *@C0035:
+ 0000028E  80 B8 00000004 R
+	   02		   *	    cmp    cellColors + [eax], color6
+ 00000295  75 10	   *	    jne    @C0038
+ 00000297  C6 80 00000004 R					mov cellColors[eax], color7
+	   04
+ 0000029E  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color7
+ 000002A5  EB 2C	   *	    jmp    @C003A
+ 000002A7		   *@C0038:
+ 000002A7  80 B8 00000004 R
+	   04		   *	    cmp    cellColors + [eax], color7
+ 000002AE  75 10	   *	    jne    @C003B
+ 000002B0  C6 80 00000004 R					mov cellColors[eax], color8
+	   08
+ 000002B7  C6 80 00000008 R					mov cellColors[eax+4], 7
+	   07
+							.elseif cellColors[eax] == color8
+ 000002BE  EB 13	   *	    jmp    @C003D
+ 000002C0		   *@C003B:
+ 000002C0  80 B8 00000004 R
+	   08		   *	    cmp    cellColors + [eax], color8
+ 000002C7  75 0A	   *	    jne    @C003E
+ 000002C9  BA 0000006E R					mov edx, offset winString
+ 000002CE  E8 00000000 E					call WriteString
+							.endif
+						.endif
+ 000002D3		   *@C003E:
+ 000002D3		   *@C003D:
+ 000002D3		   *@C003A:
+ 000002D3		   *@C0037:
+ 000002D3		   *@C0034:
+ 000002D3		   *@C0031:
+ 000002D3		   *@C002E:
+ 000002D3		   *@C002B:
+ 000002D3		   *@C0027:
+
+ 000002D3  46					inc esi
+ 000002D4  E9 FFFFFF0B				jmp colLoop
+ 000002D9			innerDone:
+ 000002D9  61				popad
+ 000002DA  46				inc esi
+ 000002DB  E9 FFFFFEEF			jmp rowLoop
+ 000002E0			done:
+
+ 000002E0  C3				ret
+ 000002E1			MergeVertical ENDP
+
+
+
+ 000002E1			ShiftLeft PROC
+ 000002E1  BE 00000000			mov esi, 0
+ 000002E6			rowLoop:
+ 000002E6  83 FE 04			cmp esi, 4
+ 000002E9  74 5E			je done
+ 000002EB  60				pushad
+ 000002EC  C7 05 0000005A R		mov shiftArray[0], 7
 	   00000007
- 000000E4  C7 05 0000005E R		mov shiftArray[4], 7
+ 000002F6  C7 05 0000005E R		mov shiftArray[4], 7
 	   00000007
- 000000EE  C7 05 00000062 R		mov shiftArray[8], 7
+ 00000300  C7 05 00000062 R		mov shiftArray[8], 7
 	   00000007
- 000000F8  C7 05 00000066 R		mov shiftArray[12], 7
+ 0000030A  C7 05 00000066 R		mov shiftArray[12], 7
 	   00000007
- 00000102  89 35 00000056 R		mov rowIdx, esi
- 00000108  BE 00000004			mov esi, 4
- 0000010D				colLoop:
- 0000010D  83 FE 00				cmp esi, 0
- 00000110  74 1D				je innerDone
- 00000112  4E					dec esi
+ 00000314  89 35 00000056 R		mov rowIdx, esi
+ 0000031A  BE 00000000			mov esi, 0
+ 0000031F				colLoop:
+ 0000031F  83 FE 04				cmp esi, 4
+ 00000322  74 1C				je innerDone
+ 00000324  A1 00000056 R			mov eax, rowIdx
+ 00000329  03 C0				add eax, eax
+ 0000032B  03 C0				add eax, eax
+ 0000032D  03 C6				add eax, esi
+						.if cellColors[eax] != 7
+ 0000032F  80 B8 00000004 R
+	   07		   *	    cmp    cellColors + [eax], 007h
+ 00000336  74 05	   *	    je	@C0040
+ 00000338  E8 0000034A					call append
+						.endif
+ 0000033D		   *@C0040:
+ 0000033D  46					inc esi
+ 0000033E  EB DF				jmp colLoop
+ 00000340			innerDone:
+ 00000340  E8 000002F0			call transferArray
+ 00000345  61				popad
+ 00000346  46				inc esi
+ 00000347  EB 9D			jmp rowLoop
+ 00000349			done:
+ 00000349  C3				ret
+ 0000034A			ShiftLeft ENDP
+
+ 0000034A			ShiftDown PROC
+ 0000034A  BE 00000000			mov esi, 0
+ 0000034F			rowLoop:
+ 0000034F  83 FE 04			cmp esi, 4
+ 00000352  74 5F			je done
+ 00000354  60				pushad
+ 00000355  C7 05 0000005A R		mov shiftArray[0], 7
+	   00000007
+ 0000035F  C7 05 0000005E R		mov shiftArray[4], 7
+	   00000007
+ 00000369  C7 05 00000062 R		mov shiftArray[8], 7
+	   00000007
+ 00000373  C7 05 00000066 R		mov shiftArray[12], 7
+	   00000007
+ 0000037D  89 35 00000056 R		mov rowIdx, esi
+ 00000383  BE 00000004			mov esi, 4
+ 00000388				colLoop:
+ 00000388  83 FE 00				cmp esi, 0
+ 0000038B  74 1D				je innerDone
+ 0000038D  4E					dec esi
 						; eax = (4 * rowIdx) + esi
- 00000113  8B C6				mov eax, esi
- 00000115  03 C0				add eax, eax
- 00000117  03 C0				add eax, eax
- 00000119  03 05 00000056 R			add eax, rowIdx
+ 0000038E  8B C6				mov eax, esi
+ 00000390  03 C0				add eax, eax
+ 00000392  03 C0				add eax, eax
+ 00000394  03 05 00000056 R			add eax, rowIdx
 						.if cellColors[eax] != 7
- 0000011F  80 B8 00000004 R
+ 0000039A  80 B8 00000004 R
 	   07		   *	    cmp    cellColors + [eax], 007h
- 00000126  74 05	   *	    je	@C000E
- 00000128  E8 00000300					call appendReversed
+ 000003A1  74 05	   *	    je	@C0042
+ 000003A3  E8 00000309					call appendReversed
 						.endif
- 0000012D		   *@C000E:
- 0000012D  EB DE				jmp colLoop
- 0000012F			innerDone:
- 0000012F  E8 000002A6			call transferTransposedArray
- 00000134  61				popad
- 00000135  46				inc esi
- 00000136  EB 9C			jmp rowLoop
- 00000138			done:
- 00000138  C3				ret
- 00000139			ShiftDown ENDP
+ 000003A8		   *@C0042:
+ 000003A8  EB DE				jmp colLoop
+ 000003AA			innerDone:
+ 000003AA  E8 000002AF			call transferTransposedArray
+ 000003AF  61				popad
+ 000003B0  46				inc esi
+ 000003B1  EB 9C			jmp rowLoop
+ 000003B3			done:
+ 000003B3  C3				ret
+ 000003B4			ShiftDown ENDP
 
- 00000139			ShiftRight PROC
- 00000139  BE 00000000			mov esi, 0
- 0000013E			rowLoop:
- 0000013E  83 FE 04			cmp esi, 4
- 00000141  74 5E			je done
- 00000143  60				pushad
- 00000144  C7 05 0000005A R		mov shiftArray[0], 7
+ 000003B4			ShiftRight PROC
+ 000003B4  BE 00000000			mov esi, 0
+ 000003B9			rowLoop:
+ 000003B9  83 FE 04			cmp esi, 4
+ 000003BC  74 5E			je done
+ 000003BE  60				pushad
+ 000003BF  C7 05 0000005A R		mov shiftArray[0], 7
 	   00000007
- 0000014E  C7 05 0000005E R		mov shiftArray[4], 7
+ 000003C9  C7 05 0000005E R		mov shiftArray[4], 7
 	   00000007
- 00000158  C7 05 00000062 R		mov shiftArray[8], 7
+ 000003D3  C7 05 00000062 R		mov shiftArray[8], 7
 	   00000007
- 00000162  C7 05 00000066 R		mov shiftArray[12], 7
+ 000003DD  C7 05 00000066 R		mov shiftArray[12], 7
 	   00000007
- 0000016C  89 35 00000056 R		mov rowIdx, esi
- 00000172  BE 00000004			mov esi, 4
- 00000177				colLoop:
- 00000177  83 FE 00				cmp esi, 0
- 0000017A  74 1C				je innerDone
- 0000017C  4E					dec esi
+ 000003E7  89 35 00000056 R		mov rowIdx, esi
+ 000003ED  BE 00000004			mov esi, 4
+ 000003F2				colLoop:
+ 000003F2  83 FE 00				cmp esi, 0
+ 000003F5  74 1C				je innerDone
+ 000003F7  4E					dec esi
 						; eax = (4 * rowIdx) + esi
- 0000017D  A1 00000056 R			mov eax, rowIdx
- 00000182  03 C0				add eax, eax
- 00000184  03 C0				add eax, eax
- 00000186  03 C6				add eax, esi
+ 000003F8  A1 00000056 R			mov eax, rowIdx
+ 000003FD  03 C0				add eax, eax
+ 000003FF  03 C0				add eax, eax
+ 00000401  03 C6				add eax, esi
 						.if cellColors[eax] != 7
- 00000188  80 B8 00000004 R
+ 00000403  80 B8 00000004 R
 	   07		   *	    cmp    cellColors + [eax], 007h
- 0000018F  74 05	   *	    je	@C0010
- 00000191  E8 00000297					call appendReversed
+ 0000040A  74 05	   *	    je	@C0044
+ 0000040C  E8 000002A0					call appendReversed
 						.endif
- 00000196		   *@C0010:
- 00000196  EB DF				jmp colLoop
- 00000198			innerDone:
- 00000198  E8 00000214			call transferArray
- 0000019D  61				popad
- 0000019E  46				inc esi
- 0000019F  EB 9D			jmp rowLoop
- 000001A1			done:
- 000001A1  C3				ret
- 000001A2			ShiftRight ENDP
+ 00000411		   *@C0044:
+ 00000411  EB DF				jmp colLoop
+ 00000413			innerDone:
+ 00000413  E8 0000021D			call transferArray
+ 00000418  61				popad
+ 00000419  46				inc esi
+ 0000041A  EB 9D			jmp rowLoop
+ 0000041C			done:
+ 0000041C  C3				ret
+ 0000041D			ShiftRight ENDP
 
- 000001A2			ShiftUp PROC
- 000001A2  BE 00000000			mov esi, 0
- 000001A7			rowLoop:
- 000001A7  83 FE 04			cmp esi, 4
- 000001AA  74 5F			je done
- 000001AC  60				pushad
- 000001AD  C7 05 0000005A R		mov shiftArray[0], 7
+ 0000041D			ShiftUp PROC
+ 0000041D  BE 00000000			mov esi, 0
+ 00000422			rowLoop:
+ 00000422  83 FE 04			cmp esi, 4
+ 00000425  74 5F			je done
+ 00000427  60				pushad
+ 00000428  C7 05 0000005A R		mov shiftArray[0], 7
 	   00000007
- 000001B7  C7 05 0000005E R		mov shiftArray[4], 7
+ 00000432  C7 05 0000005E R		mov shiftArray[4], 7
 	   00000007
- 000001C1  C7 05 00000062 R		mov shiftArray[8], 7
+ 0000043C  C7 05 00000062 R		mov shiftArray[8], 7
 	   00000007
- 000001CB  C7 05 00000066 R		mov shiftArray[12], 7
+ 00000446  C7 05 00000066 R		mov shiftArray[12], 7
 	   00000007
- 000001D5  89 35 00000056 R		mov rowIdx, esi
- 000001DB  BE 00000000			mov esi, 0
- 000001E0				colLoop:
- 000001E0  83 FE 04				cmp esi, 4
- 000001E3  74 1D				je innerDone
- 000001E5  8B C6				mov eax, esi
- 000001E7  03 C0				add eax, eax
- 000001E9  03 C0				add eax, eax
- 000001EB  03 05 00000056 R			add eax, rowIdx
+ 00000450  89 35 00000056 R		mov rowIdx, esi
+ 00000456  BE 00000000			mov esi, 0
+ 0000045B				colLoop:
+ 0000045B  83 FE 04				cmp esi, 4
+ 0000045E  74 1D				je innerDone
+ 00000460  8B C6				mov eax, esi
+ 00000462  03 C0				add eax, eax
+ 00000464  03 C0				add eax, eax
+ 00000466  03 05 00000056 R			add eax, rowIdx
 						.if cellColors[eax] != 7
- 000001F1  80 B8 00000004 R
+ 0000046C  80 B8 00000004 R
 	   07		   *	    cmp    cellColors + [eax], 007h
- 000001F8  74 05	   *	    je	@C0012
- 000001FA  E8 00000204					call append
+ 00000473  74 05	   *	    je	@C0046
+ 00000475  E8 0000020D					call append
 						.endif
- 000001FF		   *@C0012:
- 000001FF  46					inc esi
- 00000200  EB DE				jmp colLoop
- 00000202			innerDone:
- 00000202  E8 000001D3			call transferTransposedArray
- 00000207  61				popad
- 00000208  46				inc esi
- 00000209  EB 9C			jmp rowLoop
- 0000020B			done:
- 0000020B  C3				ret
- 0000020C			ShiftUp ENDP
+ 0000047A		   *@C0046:
+ 0000047A  46					inc esi
+ 0000047B  EB DE				jmp colLoop
+ 0000047D			innerDone:
+ 0000047D  E8 000001DC			call transferTransposedArray
+ 00000482  61				popad
+ 00000483  46				inc esi
+ 00000484  EB 9C			jmp rowLoop
+ 00000486			done:
+ 00000486  C3				ret
+ 00000487			ShiftUp ENDP
 
- 0000020C			PrintBoard PROC
- 0000020C  B9 00000004			mov ecx,rowH
- 00000211				L1:		; loop for printing row 1
+ 00000487			PrintBoard PROC
+ 00000487  B9 00000004			mov ecx,rowH
+ 0000048C				L1:		; loop for printing row 1
 					INVOKE PrintLine, 0
- 00000211  6A 00	   *	    push   +000000000h
- 00000213  E8 0000009B	   *	    call   PrintLine
- 00000218  E8 00000000 E	    call Crlf
- 0000021D  E2 F2			loop L1
+ 0000048C  6A 00	   *	    push   +000000000h
+ 0000048E  E8 0000009B	   *	    call   PrintLine
+ 00000493  E8 00000000 E	    call Crlf
+ 00000498  E2 F2			loop L1
 
- 0000021F  B9 00000004			mov ecx,rowH
- 00000224				L2:		; loop for printing row 2
+ 0000049A  B9 00000004			mov ecx,rowH
+ 0000049F				L2:		; loop for printing row 2
 				    INVOKE PrintLine, 4
- 00000224  6A 04	   *	    push   +000000004h
- 00000226  E8 00000088	   *	    call   PrintLine
- 0000022B  E8 00000000 E	    call Crlf
- 00000230  E2 F2			loop L2
+ 0000049F  6A 04	   *	    push   +000000004h
+ 000004A1  E8 00000088	   *	    call   PrintLine
+ 000004A6  E8 00000000 E	    call Crlf
+ 000004AB  E2 F2			loop L2
 					
- 00000232  B9 00000004			mov ecx,rowH
- 00000237				L3:		; loop for printing row 3
+ 000004AD  B9 00000004			mov ecx,rowH
+ 000004B2				L3:		; loop for printing row 3
 					INVOKE PrintLine, 8
- 00000237  6A 08	   *	    push   +000000008h
- 00000239  E8 00000075	   *	    call   PrintLine
- 0000023E  E8 00000000 E	    call Crlf
- 00000243  E2 F2			loop L3
+ 000004B2  6A 08	   *	    push   +000000008h
+ 000004B4  E8 00000075	   *	    call   PrintLine
+ 000004B9  E8 00000000 E	    call Crlf
+ 000004BE  E2 F2			loop L3
 
- 00000245  B9 00000004			mov ecx,rowH
- 0000024A				L4:		; loop for printing row 4
+ 000004C0  B9 00000004			mov ecx,rowH
+ 000004C5				L4:		; loop for printing row 4
 				    INVOKE PrintLine, 12
- 0000024A  6A 0C	   *	    push   +00000000Ch
- 0000024C  E8 00000062	   *	    call   PrintLine
- 00000251  E8 00000000 E	    call Crlf
- 00000256  E2 F2			loop L4
+ 000004C5  6A 0C	   *	    push   +00000000Ch
+ 000004C7  E8 00000062	   *	    call   PrintLine
+ 000004CC  E8 00000000 E	    call Crlf
+ 000004D1  E2 F2			loop L4
 
 				    INVOKE SetColor, black, black ; return to normal color
- 00000258  6A 00	   *	    push   +000000000h
- 0000025A  6A 00	   *	    push   +000000000h
- 0000025C  E8 0000013A	   *	    call   SetColor
- 00000261  E8 00000000 E	    call Crlf
- 00000266  C3				ret
- 00000267			PrintBoard ENDP
+ 000004D3  6A 00	   *	    push   +000000000h
+ 000004D5  6A 00	   *	    push   +000000000h
+ 000004D7  E8 0000013A	   *	    call   SetColor
+ 000004DC  E8 00000000 E	    call Crlf
+ 000004E1  C3				ret
+ 000004E2			PrintBoard ENDP
 
- 00000267			RandomCell PROC
- 00000267  C6 05 0000006A R		mov putCell, 0
+ 000004E2			RandomCell PROC
+ 000004E2  C6 05 0000008B R		mov putCell, 0
 	   00
 					.repeat
- 0000026E		   *@C0014:
- 0000026E  B8 00000010				mov eax,16
- 00000273  E8 00000000 E			call RandomRange
- 00000278  A3 00000000 R			mov ranCell,eax
+ 000004E9		   *@C0048:
+ 000004E9  B8 00000010				mov eax,16
+ 000004EE  E8 00000000 E			call RandomRange
+ 000004F3  A3 00000000 R			mov ranCell,eax
 
- 0000027D  A1 00000000 R			mov eax, ranCell
+ 000004F8  A1 00000000 R			mov eax, ranCell
 
 						.if cellColors[eax] == 7 || cellColors[eax] == 8 
- 00000282  80 B8 00000004 R
+ 000004FD  80 B8 00000004 R
 	   07		   *	    cmp    cellColors + [eax], 007h
- 00000289  74 09	   *	    je	@C0016
- 0000028B  80 B8 00000004 R
+ 00000504  74 09	   *	    je	@C004A
+ 00000506  80 B8 00000004 R
 	   08		   *	    cmp    cellColors + [eax], 008h
- 00000292  75 15	   *	    jne    @C0015
- 00000294		   *@C0016:
- 00000294  FE 05 0000006A R				inc putCell
- 0000029A  8D 35 00000004 R				lea esi,cellColors			; adds tile color to random cell
- 000002A0  03 35 00000000 R				add esi,ranCell
- 000002A6  C6 06 0B					mov BYTE PTR [esi],11	
+ 0000050D  75 15	   *	    jne    @C0049
+ 0000050F		   *@C004A:
+ 0000050F  FE 05 0000008B R				inc putCell
+ 00000515  8D 35 00000004 R				lea esi,cellColors			; adds tile color to random cell
+ 0000051B  03 35 00000000 R				add esi,ranCell
+ 00000521  C6 06 0B					mov BYTE PTR [esi],11	
 						.endif
 						
 					.until putCell == 1
- 000002A9		   *@C0015:
- 000002A9  80 3D 0000006A R
+ 00000524		   *@C0049:
+ 00000524  80 3D 0000008B R
 	   01		   *	    cmp    putCell, 001h
- 000002B0  75 BC	   *	    jne    @C0014
- 000002B2  C3				ret
- 000002B3			RandomCell ENDP
+ 0000052B  75 BC	   *	    jne    @C0048
+ 0000052D  C3				ret
+ 0000052E			RandomCell ENDP
 
- 000002B3			PrintLine PROC idx:BYTE
- 000002B3  55		   *	    push   ebp
- 000002B4  8B EC	   *	    mov    ebp, esp
- 000002B6  0F B6 5D 08			movzx ebx, idx
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+0]
- 000002BA  8A 83 00000004 R *	    mov    al, cellColors[ebx]
- 000002C0  50		   *	    push   eax
- 000002C1  6A 30	   *	    push   +000000030h
- 000002C3  6A 20	   *	    push   +000000020h
- 000002C5  E8 00000074	   *	    call   WriteColorChar
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+0]
- 000002CA  8A 83 00000004 R *	    mov    al, cellColors[ebx]
- 000002D0  50		   *	    push   eax
- 000002D1  6A 30	   *	    push   +000000030h
- 000002D3  6A 20	   *	    push   +000000020h
- 000002D5  E8 00000064	   *	    call   WriteColorChar
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+1]
- 000002DA  8A 83 00000005 R *	    mov    al, cellColors[ebx]+001h
- 000002E0  50		   *	    push   eax
- 000002E1  6A 30	   *	    push   +000000030h
- 000002E3  6A 20	   *	    push   +000000020h
- 000002E5  E8 00000054	   *	    call   WriteColorChar
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+1]
- 000002EA  8A 83 00000005 R *	    mov    al, cellColors[ebx]+001h
- 000002F0  50		   *	    push   eax
- 000002F1  6A 30	   *	    push   +000000030h
- 000002F3  6A 20	   *	    push   +000000020h
- 000002F5  E8 00000044	   *	    call   WriteColorChar
-					INVOKE WriteColorChar, ' ', '0', cellColors[ebx+2]
- 000002FA  8A 83 00000006 R *	    mov    al, cellColors[ebx]+002h
- 00000300  50		   *	    push   eax
- 00000301  6A 30	   *	    push   +000000030h
- 00000303  6A 20	   *	    push   +000000020h
- 00000305  E8 00000034	   *	    call   WriteColorChar
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+2]
- 0000030A  8A 83 00000006 R *	    mov    al, cellColors[ebx]+002h
- 00000310  50		   *	    push   eax
- 00000311  6A 30	   *	    push   +000000030h
- 00000313  6A 20	   *	    push   +000000020h
- 00000315  E8 00000024	   *	    call   WriteColorChar
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+3]
- 0000031A  8A 83 00000007 R *	    mov    al, cellColors[ebx]+003h
- 00000320  50		   *	    push   eax
- 00000321  6A 30	   *	    push   +000000030h
- 00000323  6A 20	   *	    push   +000000020h
- 00000325  E8 00000014	   *	    call   WriteColorChar
-				    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+3]
- 0000032A  8A 83 00000007 R *	    mov    al, cellColors[ebx]+003h
- 00000330  50		   *	    push   eax
- 00000331  6A 30	   *	    push   +000000030h
- 00000333  6A 20	   *	    push   +000000020h
- 00000335  E8 00000004	   *	    call   WriteColorChar
+ 0000052E			PrintLine PROC idx:BYTE
+ 0000052E  55		   *	    push   ebp
+ 0000052F  8B EC	   *	    mov    ebp, esp
+ 00000531  0F B6 5D 08			movzx ebx, idx
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+0]
+ 00000535  8A 83 00000004 R *	    mov    al, cellColors[ebx]
+ 0000053B  50		   *	    push   eax
+ 0000053C  6A 20	   *	    push   +000000020h
+ 0000053E  6A 20	   *	    push   +000000020h
+ 00000540  E8 00000074	   *	    call   WriteColorChar
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+0]
+ 00000545  8A 83 00000004 R *	    mov    al, cellColors[ebx]
+ 0000054B  50		   *	    push   eax
+ 0000054C  6A 20	   *	    push   +000000020h
+ 0000054E  6A 20	   *	    push   +000000020h
+ 00000550  E8 00000064	   *	    call   WriteColorChar
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+1]
+ 00000555  8A 83 00000005 R *	    mov    al, cellColors[ebx]+001h
+ 0000055B  50		   *	    push   eax
+ 0000055C  6A 20	   *	    push   +000000020h
+ 0000055E  6A 20	   *	    push   +000000020h
+ 00000560  E8 00000054	   *	    call   WriteColorChar
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+1]
+ 00000565  8A 83 00000005 R *	    mov    al, cellColors[ebx]+001h
+ 0000056B  50		   *	    push   eax
+ 0000056C  6A 20	   *	    push   +000000020h
+ 0000056E  6A 20	   *	    push   +000000020h
+ 00000570  E8 00000044	   *	    call   WriteColorChar
+					INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+2]
+ 00000575  8A 83 00000006 R *	    mov    al, cellColors[ebx]+002h
+ 0000057B  50		   *	    push   eax
+ 0000057C  6A 20	   *	    push   +000000020h
+ 0000057E  6A 20	   *	    push   +000000020h
+ 00000580  E8 00000034	   *	    call   WriteColorChar
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+2]
+ 00000585  8A 83 00000006 R *	    mov    al, cellColors[ebx]+002h
+ 0000058B  50		   *	    push   eax
+ 0000058C  6A 20	   *	    push   +000000020h
+ 0000058E  6A 20	   *	    push   +000000020h
+ 00000590  E8 00000024	   *	    call   WriteColorChar
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+3]
+ 00000595  8A 83 00000007 R *	    mov    al, cellColors[ebx]+003h
+ 0000059B  50		   *	    push   eax
+ 0000059C  6A 20	   *	    push   +000000020h
+ 0000059E  6A 20	   *	    push   +000000020h
+ 000005A0  E8 00000014	   *	    call   WriteColorChar
+				    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+3]
+ 000005A5  8A 83 00000007 R *	    mov    al, cellColors[ebx]+003h
+ 000005AB  50		   *	    push   eax
+ 000005AC  6A 20	   *	    push   +000000020h
+ 000005AE  6A 20	   *	    push   +000000020h
+ 000005B0  E8 00000004	   *	    call   WriteColorChar
 				    ret
- 0000033A  C9		   *	    leave  
- 0000033B  C2 0004	   *	    ret    00004h
- 0000033E			PrintLine ENDP
+ 000005B5  C9		   *	    leave  
+ 000005B6  C2 0004	   *	    ret    00004h
+ 000005B9			PrintLine ENDP
 
- 0000033E			WriteColorChar PROC USES eax, char:BYTE, forecolor:BYTE, backcolor:BYTE 
- 0000033E  55		   *	    push   ebp
- 0000033F  8B EC	   *	    mov    ebp, esp
- 00000341  50		   *	    push   eax
+ 000005B9			WriteColorChar PROC USES eax, char:BYTE, forecolor:BYTE, backcolor:BYTE 
+ 000005B9  55		   *	    push   ebp
+ 000005BA  8B EC	   *	    mov    ebp, esp
+ 000005BC  50		   *	    push   eax
 				    INVOKE SetColor, forecolor, backcolor
- 00000342  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
- 00000345  50		   *	    push   eax
- 00000346  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
- 00000349  50		   *	    push   eax
- 0000034A  E8 0000004C	   *	    call   SetColor
- 0000034F  8A 45 08		    mov al, char
- 00000352  E8 00000000 E	    call WriteChar
+ 000005BD  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 000005C0  50		   *	    push   eax
+ 000005C1  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 000005C4  50		   *	    push   eax
+ 000005C5  E8 0000004C	   *	    call   SetColor
+ 000005CA  8A 45 08		    mov al, char
+ 000005CD  E8 00000000 E	    call WriteChar
 					INVOKE SetColor, forecolor, backcolor
- 00000357  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
- 0000035A  50		   *	    push   eax
- 0000035B  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
- 0000035E  50		   *	    push   eax
- 0000035F  E8 00000037	   *	    call   SetColor
- 00000364  8A 45 08		    mov al, char
- 00000367  E8 00000000 E	    call WriteChar
+ 000005D2  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 000005D5  50		   *	    push   eax
+ 000005D6  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 000005D9  50		   *	    push   eax
+ 000005DA  E8 00000037	   *	    call   SetColor
+ 000005DF  8A 45 08		    mov al, char
+ 000005E2  E8 00000000 E	    call WriteChar
 					INVOKE SetColor, forecolor, backcolor
- 0000036C  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
- 0000036F  50		   *	    push   eax
- 00000370  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
- 00000373  50		   *	    push   eax
- 00000374  E8 00000022	   *	    call   SetColor
- 00000379  8A 45 08		    mov al, char
- 0000037C  E8 00000000 E	    call WriteChar
+ 000005E7  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 000005EA  50		   *	    push   eax
+ 000005EB  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 000005EE  50		   *	    push   eax
+ 000005EF  E8 00000022	   *	    call   SetColor
+ 000005F4  8A 45 08		    mov al, char
+ 000005F7  E8 00000000 E	    call WriteChar
 					INVOKE SetColor, forecolor, backcolor
- 00000381  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
- 00000384  50		   *	    push   eax
- 00000385  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
- 00000388  50		   *	    push   eax
- 00000389  E8 0000000D	   *	    call   SetColor
- 0000038E  8A 45 08		    mov al, char
- 00000391  E8 00000000 E	    call WriteChar
+ 000005FC  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 000005FF  50		   *	    push   eax
+ 00000600  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 00000603  50		   *	    push   eax
+ 00000604  E8 0000000D	   *	    call   SetColor
+ 00000609  8A 45 08		    mov al, char
+ 0000060C  E8 00000000 E	    call WriteChar
 				    ret
- 00000396  58		   *	    pop    eax
- 00000397  C9		   *	    leave  
- 00000398  C2 000C	   *	    ret    0000Ch
- 0000039B			WriteColorChar ENDP
+ 00000611  58		   *	    pop    eax
+ 00000612  C9		   *	    leave  
+ 00000613  C2 000C	   *	    ret    0000Ch
+ 00000616			WriteColorChar ENDP
 
- 0000039B			SetColor PROC, forecolor:BYTE, backcolor:BYTE
- 0000039B  55		   *	    push   ebp
- 0000039C  8B EC	   *	    mov    ebp, esp
- 0000039E  0F B6 45 0C		    movzx eax, backcolor
- 000003A2  C1 E0 04		    shl eax, 4
- 000003A5  0A 45 08		    or al, forecolor
- 000003A8  E8 00000000 E	    call SetTextColor       ; from Irvine32.lib
+ 00000616			SetColor PROC, forecolor:BYTE, backcolor:BYTE
+ 00000616  55		   *	    push   ebp
+ 00000617  8B EC	   *	    mov    ebp, esp
+ 00000619  60				pushad
+				    ;movzx eax, backcolor
+				    ;shl eax, 4
+				    ;or al, forecolor
+ 0000061A  0F B6 45 0C			movzx eax, backcolor
+ 0000061E  BB 00000010			mov ebx, 16
+ 00000623  F7 E3			mul ebx
+ 00000625  0F B6 5D 08			movzx ebx, forecolor
+ 00000629  03 C3			add eax, ebx
+ 0000062B  E8 00000000 E		call SetTextColor       ; from Irvine32.lib
+ 00000630  61				popad
 				    ret
- 000003AD  C9		   *	    leave  
- 000003AE  C2 0008	   *	    ret    00008h
- 000003B1			SetColor ENDP
+ 00000631  C9		   *	    leave  
+ 00000632  C2 0008	   *	    ret    00008h
+ 00000635			SetColor ENDP
 
- 000003B1			transferArray PROC
- 000003B1  60				pushad
- 000003B2  B9 00000004			mov ecx, 4
- 000003B7  BE 00000000			mov esi, 0
- 000003BC				fill:
- 000003BC  8B 14 B5				mov edx, shiftArray[esi*4]
+ 00000635			transferArray PROC
+ 00000635  60				pushad
+ 00000636  B9 00000004			mov ecx, 4
+ 0000063B  BE 00000000			mov esi, 0
+ 00000640				fill:
+ 00000640  8B 14 B5				mov edx, shiftArray[esi*4]
 	   0000005A R
- 000003C3  8B 1D 00000056 R			mov ebx, rowIdx
- 000003C9  03 DB				add ebx, ebx
- 000003CB  03 DB				add ebx, ebx
- 000003CD  03 DE				add ebx, esi
- 000003CF  88 93 00000004 R			mov cellColors[ebx], dl
- 000003D5  46					inc esi
- 000003D6  E2 E4			loop fill
- 000003D8  61				popad
- 000003D9  C3				ret
- 000003DA			transferArray ENDP
+ 00000647  8B 1D 00000056 R			mov ebx, rowIdx
+ 0000064D  03 DB				add ebx, ebx
+ 0000064F  03 DB				add ebx, ebx
+ 00000651  03 DE				add ebx, esi
+ 00000653  88 93 00000004 R			mov cellColors[ebx], dl
+ 00000659  46					inc esi
+ 0000065A  E2 E4			loop fill
+ 0000065C  61				popad
+ 0000065D  C3				ret
+ 0000065E			transferArray ENDP
 
- 000003DA			transferTransposedArray PROC
- 000003DA  60				pushad
- 000003DB  B9 00000004			mov ecx, 4
- 000003E0  BE 00000000			mov esi, 0
- 000003E5				fill:
- 000003E5  8B 14 B5				mov edx, shiftArray[esi*4]
+ 0000065E			transferTransposedArray PROC
+ 0000065E  60				pushad
+ 0000065F  B9 00000004			mov ecx, 4
+ 00000664  BE 00000000			mov esi, 0
+ 00000669				fill:
+ 00000669  8B 14 B5				mov edx, shiftArray[esi*4]
 	   0000005A R
- 000003EC  8B DE				mov ebx, esi
- 000003EE  03 DB				add ebx, ebx
- 000003F0  03 DB				add ebx, ebx
- 000003F2  03 1D 00000056 R			add ebx, rowIdx
- 000003F8  88 93 00000004 R			mov cellColors[ebx], dl
- 000003FE  46					inc esi
- 000003FF  E2 E4			loop fill
- 00000401  61				popad
- 00000402  C3				ret
- 00000403			transferTransposedArray ENDP
+ 00000670  8B DE				mov ebx, esi
+ 00000672  03 DB				add ebx, ebx
+ 00000674  03 DB				add ebx, ebx
+ 00000676  03 1D 00000056 R			add ebx, rowIdx
+ 0000067C  88 93 00000004 R			mov cellColors[ebx], dl
+ 00000682  46					inc esi
+ 00000683  E2 E4			loop fill
+ 00000685  61				popad
+ 00000686  C3				ret
+ 00000687			transferTransposedArray ENDP
 
- 00000403			append PROC
- 00000403  60				pushad
- 00000404  B9 00000004			mov ecx, 4
- 00000409  BE 00000000			mov esi, 0
- 0000040E				appendValue:
+ 00000687			append PROC
+ 00000687  60				pushad
+ 00000688  B9 00000004			mov ecx, 4
+ 0000068D  BE 00000000			mov esi, 0
+ 00000692				appendValue:
 						.if shiftArray[esi*4] == 7
- 0000040E  83 3C B5
+ 00000692  83 3C B5
 	   0000005A R 07   *	    cmp    shiftArray + [esi * 004h], 007h
- 00000416  75 10	   *	    jne    @C0019
- 00000418  0F B6 98					movzx ebx, cellColors[eax]
+ 0000069A  75 10	   *	    jne    @C004D
+ 0000069C  0F B6 98					movzx ebx, cellColors[eax]
 	   00000004 R
- 0000041F  89 1C B5					mov shiftArray[esi*4], ebx
+ 000006A3  89 1C B5					mov shiftArray[esi*4], ebx
 	   0000005A R
- 00000426  EB 03					jmp outOfLoop
+ 000006AA  EB 03					jmp outOfLoop
 						.endif
- 00000428		   *@C0019:
- 00000428  46					inc esi
- 00000429  E2 E3			loop appendValue
- 0000042B				outOfLoop:
- 0000042B  61				popad
- 0000042C  C3				ret
- 0000042D			append ENDP
+ 000006AC		   *@C004D:
+ 000006AC  46					inc esi
+ 000006AD  E2 E3			loop appendValue
+ 000006AF				outOfLoop:
+ 000006AF  61				popad
+ 000006B0  C3				ret
+ 000006B1			append ENDP
 
- 0000042D			appendReversed PROC
- 0000042D  60				pushad
- 0000042E  BE 00000004			mov esi, 4
- 00000433				appendValue:
- 00000433  83 FE 00				cmp esi, 0
- 00000436  74 1D				je outOfLoop
- 00000438  4E					dec esi
+ 000006B1			appendReversed PROC
+ 000006B1  60				pushad
+ 000006B2  BE 00000004			mov esi, 4
+ 000006B7				appendValue:
+ 000006B7  83 FE 00				cmp esi, 0
+ 000006BA  74 1D				je outOfLoop
+ 000006BC  4E					dec esi
 						.if shiftArray[esi*4] == 7
- 00000439  83 3C B5
+ 000006BD  83 3C B5
 	   0000005A R 07   *	    cmp    shiftArray + [esi * 004h], 007h
- 00000441  75 10	   *	    jne    @C001B
- 00000443  0F B6 98					movzx ebx, cellColors[eax]
+ 000006C5  75 10	   *	    jne    @C004F
+ 000006C7  0F B6 98					movzx ebx, cellColors[eax]
 	   00000004 R
- 0000044A  89 1C B5					mov shiftArray[esi*4], ebx
+ 000006CE  89 1C B5					mov shiftArray[esi*4], ebx
 	   0000005A R
- 00000451  EB 02					jmp outOfLoop
+ 000006D5  EB 02					jmp outOfLoop
 						.endif
- 00000453		   *@C001B:
- 00000453  E2 DE			loop appendValue
- 00000455				outOfLoop:
- 00000455  61				popad
- 00000456  C3				ret
- 00000457			appendReversed ENDP
+ 000006D7		   *@C004F:
+ 000006D7  E2 DE			loop appendValue
+ 000006D9				outOfLoop:
+ 000006D9  61				popad
+ 000006DA  C3				ret
+ 000006DB			appendReversed ENDP
 
 				END MAIN
-Microsoft (R) Macro Assembler Version 14.00.23026.0	    12/08/17 18:40:21
+Microsoft (R) Macro Assembler Version 14.00.24210.0	    12/08/17 21:43:15
 2048			(2048.asm			     Symbols 2 - 1
 
 
@@ -668,8 +959,8 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 0000006B Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000457 Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 0000008C Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000006DB Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
@@ -717,6 +1008,19 @@ HeapFree . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 HeapSize . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 IsDigit  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 LocalFree  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeDown  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeLeft  . . . . . . . . . . .	P Near	 0000009E _TEXT	Length= 0000012C Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000000A3 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 000000B8 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 000001C2 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000001C9 _TEXT	
+MergeRight . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeUp  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeVertical  . . . . . . . . .	P Near	 000001CA _TEXT	Length= 00000117 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000001CF _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 000001E4 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 000002D9 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000002E0 _TEXT	
 MessageBoxA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 MsgBoxAsk  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 MsgBox . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -724,15 +1028,15 @@ OpenInputFile  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 ParseDecimal32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ParseInteger32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 PeekConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-PrintBoard . . . . . . . . . . .	P Near	 0000020C _TEXT	Length= 0000005B Public STDCALL
-  L1 . . . . . . . . . . . . . .	L Near	 00000211 _TEXT	
-  L2 . . . . . . . . . . . . . .	L Near	 00000224 _TEXT	
-  L3 . . . . . . . . . . . . . .	L Near	 00000237 _TEXT	
-  L4 . . . . . . . . . . . . . .	L Near	 0000024A _TEXT	
-PrintLine  . . . . . . . . . . .	P Near	 000002B3 _TEXT	Length= 0000008B Public STDCALL
+PrintBoard . . . . . . . . . . .	P Near	 00000487 _TEXT	Length= 0000005B Public STDCALL
+  L1 . . . . . . . . . . . . . .	L Near	 0000048C _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 0000049F _TEXT	
+  L3 . . . . . . . . . . . . . .	L Near	 000004B2 _TEXT	
+  L4 . . . . . . . . . . . . . .	L Near	 000004C5 _TEXT	
+PrintLine  . . . . . . . . . . .	P Near	 0000052E _TEXT	Length= 0000008B Public STDCALL
   idx  . . . . . . . . . . . . .	Byte	 bp + 00000008
 Random32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-RandomCell . . . . . . . . . . .	P Near	 00000267 _TEXT	Length= 0000004C Public STDCALL
+RandomCell . . . . . . . . . . .	P Near	 000004E2 _TEXT	Length= 0000004C Public STDCALL
 RandomRange  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 Randomize  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadChar . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -747,7 +1051,7 @@ ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-SetColor . . . . . . . . . . . .	P Near	 0000039B _TEXT	Length= 00000016 Public STDCALL
+SetColor . . . . . . . . . . . .	P Near	 00000616 _TEXT	Length= 0000001F Public STDCALL
   forecolor  . . . . . . . . . .	Byte	 bp + 00000008
   backcolor  . . . . . . . . . .	Byte	 bp + 0000000C
 SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -760,26 +1064,26 @@ SetConsoleWindowInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 SetFilePointer . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-ShiftDown  . . . . . . . . . . .	P Near	 000000CF _TEXT	Length= 0000006A Public STDCALL
-  rowLoop  . . . . . . . . . . .	L Near	 000000D4 _TEXT	
-  colLoop  . . . . . . . . . . .	L Near	 0000010D _TEXT	
-  innerDone  . . . . . . . . . .	L Near	 0000012F _TEXT	
-  done . . . . . . . . . . . . .	L Near	 00000138 _TEXT	
-ShiftLeft  . . . . . . . . . . .	P Near	 00000066 _TEXT	Length= 00000069 Public STDCALL
-  rowLoop  . . . . . . . . . . .	L Near	 0000006B _TEXT	
-  colLoop  . . . . . . . . . . .	L Near	 000000A4 _TEXT	
-  innerDone  . . . . . . . . . .	L Near	 000000C5 _TEXT	
-  done . . . . . . . . . . . . .	L Near	 000000CE _TEXT	
-ShiftRight . . . . . . . . . . .	P Near	 00000139 _TEXT	Length= 00000069 Public STDCALL
-  rowLoop  . . . . . . . . . . .	L Near	 0000013E _TEXT	
-  colLoop  . . . . . . . . . . .	L Near	 00000177 _TEXT	
-  innerDone  . . . . . . . . . .	L Near	 00000198 _TEXT	
-  done . . . . . . . . . . . . .	L Near	 000001A1 _TEXT	
-ShiftUp  . . . . . . . . . . . .	P Near	 000001A2 _TEXT	Length= 0000006A Public STDCALL
-  rowLoop  . . . . . . . . . . .	L Near	 000001A7 _TEXT	
-  colLoop  . . . . . . . . . . .	L Near	 000001E0 _TEXT	
-  innerDone  . . . . . . . . . .	L Near	 00000202 _TEXT	
-  done . . . . . . . . . . . . .	L Near	 0000020B _TEXT	
+ShiftDown  . . . . . . . . . . .	P Near	 0000034A _TEXT	Length= 0000006A Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 0000034F _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 00000388 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 000003AA _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000003B3 _TEXT	
+ShiftLeft  . . . . . . . . . . .	P Near	 000002E1 _TEXT	Length= 00000069 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000002E6 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 0000031F _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 00000340 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000349 _TEXT	
+ShiftRight . . . . . . . . . . .	P Near	 000003B4 _TEXT	Length= 00000069 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000003B9 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 000003F2 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 00000413 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000041C _TEXT	
+ShiftUp  . . . . . . . . . . . .	P Near	 0000041D _TEXT	Length= 0000006A Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 00000422 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 0000045B _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 0000047D _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000486 _TEXT	
 ShowFPUStack . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 Sleep  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 StrLength  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
@@ -789,12 +1093,12 @@ Str_length . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 Str_trim . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 Str_ucase  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 SystemTimeToFileTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-TakeInput  . . . . . . . . . . .	P Near	 0000001D _TEXT	Length= 00000049 Public STDCALL
+TakeInput  . . . . . . . . . . .	P Near	 0000002D _TEXT	Length= 00000071 Public STDCALL
 WaitMsg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteBinB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteBin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteChar  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-WriteColorChar . . . . . . . . .	P Near	 0000033E _TEXT	Length= 0000005D Public STDCALL
+WriteColorChar . . . . . . . . .	P Near	 000005B9 _TEXT	Length= 0000005D Public STDCALL
   char . . . . . . . . . . . . .	Byte	 bp + 00000008
   forecolor  . . . . . . . . . .	Byte	 bp + 0000000C
   backcolor  . . . . . . . . . .	Byte	 bp + 00000010
@@ -812,20 +1116,21 @@ WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External
 WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
 WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
-appendReversed . . . . . . . . .	P Near	 0000042D _TEXT	Length= 0000002A Public STDCALL
-  appendValue  . . . . . . . . .	L Near	 00000433 _TEXT	
-  outOfLoop  . . . . . . . . . .	L Near	 00000455 _TEXT	
-append . . . . . . . . . . . . .	P Near	 00000403 _TEXT	Length= 0000002A Public STDCALL
-  appendValue  . . . . . . . . .	L Near	 0000040E _TEXT	
-  outOfLoop  . . . . . . . . . .	L Near	 0000042B _TEXT	
-main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000001D Public STDCALL
+appendReversed . . . . . . . . .	P Near	 000006B1 _TEXT	Length= 0000002A Public STDCALL
+  appendValue  . . . . . . . . .	L Near	 000006B7 _TEXT	
+  outOfLoop  . . . . . . . . . .	L Near	 000006D9 _TEXT	
+append . . . . . . . . . . . . .	P Near	 00000687 _TEXT	Length= 0000002A Public STDCALL
+  appendValue  . . . . . . . . .	L Near	 00000692 _TEXT	
+  outOfLoop  . . . . . . . . . .	L Near	 000006AF _TEXT	
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000002D Public STDCALL
   mainLoop . . . . . . . . . . .	L Near	 0000000A _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000026 _TEXT	
 printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
-transferArray  . . . . . . . . .	P Near	 000003B1 _TEXT	Length= 00000029 Public STDCALL
-  fill . . . . . . . . . . . . .	L Near	 000003BC _TEXT	
-transferTransposedArray  . . . .	P Near	 000003DA _TEXT	Length= 00000029 Public STDCALL
-  fill . . . . . . . . . . . . .	L Near	 000003E5 _TEXT	
+transferArray  . . . . . . . . .	P Near	 00000635 _TEXT	Length= 00000029 Public STDCALL
+  fill . . . . . . . . . . . . .	L Near	 00000640 _TEXT	
+transferTransposedArray  . . . .	P Near	 0000065E _TEXT	Length= 00000029 Public STDCALL
+  fill . . . . . . . . . . . . .	L Near	 00000669 _TEXT	
 wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
 
 
@@ -1047,16 +1352,21 @@ blue . . . . . . . . . . . . . .	Number	 00000001h
 brown  . . . . . . . . . . . . .	Number	 00000006h   
 cellColors . . . . . . . . . . .	Byte	 00000004 _DATA	
 cellVals . . . . . . . . . . . .	DWord	 00000014 _DATA	
+colIndex . . . . . . . . . . . .	DWord	 0000006A _DATA	
 color1 . . . . . . . . . . . . .	Number	 0000000Bh   
 color2 . . . . . . . . . . . . .	Number	 00000009h   
 color3 . . . . . . . . . . . . .	Number	 00000005h   
 color4 . . . . . . . . . . . . .	Number	 00000001h   
 color5 . . . . . . . . . . . . .	Number	 0000000Ch   
+color6 . . . . . . . . . . . . .	Number	 00000002h   
+color7 . . . . . . . . . . . . .	Number	 00000004h   
+color8 . . . . . . . . . . . . .	Number	 00000008h   
 columns  . . . . . . . . . . . .	Number	 00000004h   
 cyan . . . . . . . . . . . . . .	Number	 00000003h   
 empty2 . . . . . . . . . . . . .	Number	 00000008h   
 empty  . . . . . . . . . . . . .	Number	 00000007h   
 exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
+gameOver . . . . . . . . . . . .	Byte	 0000008A _DATA	
 gray . . . . . . . . . . . . . .	Number	 00000008h   
 green  . . . . . . . . . . . . .	Number	 00000002h   
 key  . . . . . . . . . . . . . .	Byte	 00000055 _DATA	
@@ -1068,7 +1378,7 @@ lightMagenta . . . . . . . . . .	Number	 0000000Dh
 lightRed . . . . . . . . . . . .	Number	 0000000Ch   
 loops  . . . . . . . . . . . . .	Number	 00000002h   
 magenta  . . . . . . . . . . . .	Number	 00000005h   
-putCell  . . . . . . . . . . . .	Byte	 0000006A _DATA	
+putCell  . . . . . . . . . . . .	Byte	 0000008B _DATA	
 ranCell  . . . . . . . . . . . .	DWord	 00000000 _DATA	
 red  . . . . . . . . . . . . . .	Number	 00000004h   
 rowH . . . . . . . . . . . . . .	Number	 00000004h   
@@ -1077,6 +1387,7 @@ rows . . . . . . . . . . . . . .	Number	 00000004h
 shiftArray . . . . . . . . . . .	DWord	 0000005A _DATA	
 shiftDirection . . . . . . . . .	Byte	 00000054 _DATA	
 white  . . . . . . . . . . . . .	Number	 0000000Fh   
+winString  . . . . . . . . . . .	Byte	 0000006E _DATA	
 wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
 yellow . . . . . . . . . . . . .	Number	 0000000Eh   
 

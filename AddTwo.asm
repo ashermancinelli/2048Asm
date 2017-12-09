@@ -12,6 +12,10 @@ ShiftLeft PROTO
 ShiftRight PROTO
 ShiftDown PROTO
 ShiftUp PROTO
+MergeUp PROTO
+MergeDown PROTO
+MergeRight PROTO
+MergeLeft PROTO
 
 .data
 rows = 4
@@ -24,6 +28,9 @@ color2 = 9		; dark blue = 4
 color3 = 5		; purple = 8
 color4 = 1		; dark purple = 16
 color5 = 12		; red = 32
+color6 = 2
+color7 = 4	
+color8 = 8	
 empty = 7		; gray
 empty2 = 8		; dark gray
 cellColors BYTE	7,11,7,7,
@@ -38,7 +45,9 @@ shiftDirection BYTE ?
 key BYTE ?
 rowIdx DWORD ?
 shiftArray DWORD 7,7,7,7
-
+colIndex DWORD ?
+winString BYTE "Congradulations! YOU WON!!!", 0h
+gameOver BYTE 0
 
 putCell BYTE 0
 
@@ -50,10 +59,14 @@ main PROC
 mainLoop:
 
 	call TakeInput
-	;call RandomCell
+	.if gameOver == 1
+		jmp done
+	.endif
+	call RandomCell
 	call PrintBoard
 	loop mainLoop
 
+done:
 
     exit
 main ENDP
@@ -63,15 +76,150 @@ TakeInput PROC
 	mov key,al
 	.if key == 97				
 		call ShiftLeft
+		call MergeLeft
+		call ShiftLeft
 	.elseif key == 115			
+		call ShiftDown
+		call MergeVertical
 		call ShiftDown
 	.elseif key == 100			
 		call ShiftRight
+		call MergeLeft
+		call ShiftRight
 	.elseif key == 119			
+		call ShiftUp
+		call MergeVertical
 		call ShiftUp
 	.endif
 	ret
 TakeInput ENDP
+
+MergeLeft PROC
+	mov esi, 0
+rowLoop:
+	cmp esi, 4
+	je done
+	pushad
+
+	mov rowIdx, esi
+	mov esi, 0
+	colLoop:
+		cmp esi, 3
+		je innerDone
+
+		mov eax, rowIdx
+		add eax, eax
+		add eax, eax
+		add eax, esi
+
+		mov bl, cellColors[eax+1]
+		.if cellColors[eax] == bl	;cellColors[eax+1]
+			.if cellColors[eax] == color1
+				mov cellColors[eax], color2
+				mov cellColors[eax+1], 7
+			.elseif cellColors[eax] == color2
+				mov cellColors[eax], color3
+				mov cellColors[eax+1], 7
+			.elseif cellColors[eax] == color3
+				mov cellColors[eax], color4
+				mov cellColors[eax+1], 
+			.elseif cellColors[eax] == color4
+				mov cellColors[eax], color5
+				mov cellColors[eax+1], 7
+			.elseif cellColors[eax] == color5
+				mov cellColors[eax], color6
+				mov cellColors[eax+1], 7
+			.elseif cellColors[eax] == color6
+				mov cellColors[eax], color7
+				mov cellColors[eax+1], 7
+			.elseif cellColors[eax] == color7
+				mov cellColors[eax], color8
+				mov cellColors[eax+1], 7
+			.elseif cellColors[eax] == color8
+				invoke SetColor, white, black
+				call clrscr
+				mov edx, offset winString
+				call WriteString
+				call crlf
+				mov gameOver, 1
+			.endif
+		.endif
+
+		inc esi
+		jmp colLoop
+innerDone:
+	popad
+	inc esi
+	jmp rowLoop
+done:
+	ret
+MergeLeft ENDP
+
+
+MergeVertical PROC
+
+	mov esi, 0
+rowLoop:
+	cmp esi, 4
+	je done
+	pushad
+
+	mov colIndex, esi
+	mov esi, 0
+	colLoop:
+		cmp esi, 3
+		je innerDone
+
+		mov eax, esi
+		add eax, eax
+		add eax, eax
+		add eax, colIndex
+
+		mov bl, cellColors[eax+4]
+		.if cellColors[eax] == bl	;cellColors[eax+4]
+			.if cellColors[eax] == color1
+				mov cellColors[eax], color2
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color2
+				mov cellColors[eax], color3
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color3
+				mov cellColors[eax], color4
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color4
+				mov cellColors[eax], color5
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color5
+				mov cellColors[eax], color6
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color6
+				mov cellColors[eax], color7
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color7
+				mov cellColors[eax], color8
+				mov cellColors[eax+4], 7
+			.elseif cellColors[eax] == color8
+				invoke SetColor, white, black
+				call clrscr
+				mov edx, offset winString
+				call WriteString
+				call crlf
+				mov gameOver, 1
+			.endif
+		.endif
+
+		inc esi
+		jmp colLoop
+innerDone:
+	popad
+	inc esi
+	jmp rowLoop
+done:
+
+	ret
+MergeVertical ENDP
+
+
 
 ShiftLeft PROC
 	mov esi, 0
@@ -259,14 +407,14 @@ RandomCell ENDP
 
 PrintLine PROC idx:BYTE
 	movzx ebx, idx
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+0]
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+0]
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+1]
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+1]
-	INVOKE WriteColorChar, ' ', '0', cellColors[ebx+2]
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+2]
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+3]
-    INVOKE WriteColorChar, ' ', '0', cellColors[ebx+3]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+0]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+0]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+1]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+1]
+	INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+2]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+2]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+3]
+    INVOKE WriteColorChar, ' ', ' ', cellColors[ebx+3]
     ret
 PrintLine ENDP
 
@@ -287,10 +435,17 @@ WriteColorChar PROC USES eax, char:BYTE, forecolor:BYTE, backcolor:BYTE
 WriteColorChar ENDP
 
 SetColor PROC, forecolor:BYTE, backcolor:BYTE
-    movzx eax, backcolor
-    shl eax, 4
-    or al, forecolor
-    call SetTextColor       ; from Irvine32.lib
+	pushad
+    ;movzx eax, backcolor
+    ;shl eax, 4
+    ;or al, forecolor
+	movzx eax, backcolor
+	mov ebx, 16
+	mul ebx
+	movzx ebx, forecolor
+	add eax, ebx
+	call SetTextColor       ; from Irvine32.lib
+	popad
     ret
 SetColor ENDP
 
