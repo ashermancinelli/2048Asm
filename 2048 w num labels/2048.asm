@@ -21,20 +21,22 @@ MergeLeft PROTO
 .data
 valueB DWORD '2'
 rowH = 4
-numCell = 16
+numCell = 15
 ranCell DWORD ?
 loops = 2
+score BYTE 0d
+result BYTE "Score: ",0
 
 emptyCol = 8
 emptyVal = 0
-colors BYTE 8,LightCyan,Cyan,Blue,Magenta,LightMagenta,White,Black,Red
+colors BYTE 8,LightCyan,Yellow,Blue,Magenta,LightMagenta,White,Black,Red
 vals BYTE 0,2,4,8,16,32,64,128,129
 
 cellColors BYTE	?,?,?,?,
 				?,?,?,?,
 				?,?,?,?,
 				?,?,?,?		; initializes cell colors to default
-cellVals BYTE	2,2,0,0,
+cellVals BYTE	0,2,0,0,
 				0,0,0,0,
 				0,0,2,0,
 				0,0,0,0		; initializes cell values to default
@@ -50,8 +52,8 @@ putCell BYTE 0
 
 .code
 main PROC
-	call Randomize
 	call PrintBoard
+	call Randomize
 
 mainLoop:
 
@@ -109,9 +111,10 @@ rowLoop:
 		add eax, esi
 
 		mov bl, cellVals[eax+1]
-		.if cellVals[eax] == bl	;cellVals[eax+1]
+		.if cellVals[eax] == bl	;cellVals[eax+1]\
+			add score,bl
 			mov edi,ecx
-			mov ecx,7
+			mov ecx,8
 			LeftLoop:
 				mov dl,vals[ecx]
 				.if cellVals[eax] == dl
@@ -165,8 +168,9 @@ rowLoop:
 		
 		mov bl, cellVals[eax+rowH]
 		.if cellVals[eax] == bl	;cellVals[eax+rowH]
+			add score,bl
 			mov edi,ecx
-			mov ecx,7
+			mov ecx,8
 			VertLoop:
 				mov dl,vals[ecx]
 				.if cellVals[eax] == dl
@@ -201,6 +205,7 @@ MergeVertical ENDP
 
 
 ShiftLeft PROC
+	add score,0
 	mov esi, 0
 rowLoop:
 	cmp esi, rowH
@@ -234,6 +239,7 @@ done:
 ShiftLeft ENDP
 
 ShiftDown PROC
+	add score,0
 	mov esi, 0
 rowLoop:
 	cmp esi, rowH
@@ -267,6 +273,7 @@ done:
 ShiftDown ENDP
 
 ShiftRight PROC
+	add score,0
 	mov esi, 0
 rowLoop:
 	cmp esi, rowH
@@ -301,6 +308,7 @@ ShiftRight ENDP
 
 ShiftUp PROC
 	mov esi, 0
+	add score,0
 rowLoop:
 	cmp esi, rowH
 	je done
@@ -337,10 +345,10 @@ SetColors PROC
 	mov ecx,numCell
 	NewColor:
 		mov ebx,ecx
-		mov ecx,8
 		.if cellVals[ebx] == emptyVal
 			mov cellColors[ebx], emptyCol
 		.endif
+		mov ecx,8
 		ColorCheck:
 			mov al,vals[ecx]
 			.if cellVals[ebx] == al
@@ -351,12 +359,17 @@ SetColors PROC
 		mov ecx,ebx
 	Loop NewColor
 
-	.if cellVals[numCell] == emptyVal
-		mov cellColors[0],emptyCol
-	.elseif cellVals[0] == 2
-		mov dl,colors[1]
-		mov cellColors[0],dl
+	.if cellVals[0] == emptyVal
+	mov cellColors[0], emptyCol
 	.endif
+	mov ecx,8
+	ColorCheck0:
+		mov al,vals[ecx]
+		.if cellVals[0] == al
+			mov dl,colors[ecx]
+			mov cellColors[0],dl
+		.endif
+	Loop ColorCheck0
 
 	mov ecx,esi
 	ret
@@ -388,6 +401,17 @@ PrintBoard PROC
 		INVOKE PrintLine, 12
 		call Crlf
 	loop L4
+
+	INVOKE SetColor,emptyCol,black
+
+	mov edx,OFFSET result
+	call WriteString
+
+	mov eax,0
+	mov ebx,0
+	mov al,score
+	call WriteInt
+
 
     INVOKE SetColor, black, black ; return to normal color
     call Crlf
@@ -467,7 +491,7 @@ WriteColorChar ENDP
 SetColor PROC, forecolor:BYTE, backcolor:BYTE
 	pushad
 	movzx eax, backcolor
-	mov ebx, numCell
+	mov ebx, 16
 	mul ebx
 	movzx ebx, forecolor
 	add eax, ebx
