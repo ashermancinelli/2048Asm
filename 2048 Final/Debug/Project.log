@@ -1,0 +1,32 @@
+﻿  Assembling 2048.asm...
+2048.asm(156): error A2070: invalid instruction operands
+2048.asm(220): error A2070: invalid instruction operands
+2048.asm(260): error A2070: invalid instruction operands
+2048.asm(261): error A2070: invalid instruction operands
+2048.asm(262): error A2070: invalid instruction operands
+2048.asm(263): error A2070: invalid instruction operands
+2048.asm(305): error A2070: invalid instruction operands
+2048.asm(306): error A2070: invalid instruction operands
+2048.asm(307): error A2070: invalid instruction operands
+2048.asm(308): error A2070: invalid instruction operands
+2048.asm(341): error A2070: invalid instruction operands
+2048.asm(342): error A2070: invalid instruction operands
+2048.asm(343): error A2070: invalid instruction operands
+2048.asm(344): error A2070: invalid instruction operands
+2048.asm(375): error A2070: invalid instruction operands
+2048.asm(376): error A2070: invalid instruction operands
+2048.asm(377): error A2070: invalid instruction operands
+2048.asm(378): error A2070: invalid instruction operands
+2048.asm(412): error A2070: invalid instruction operands
+2048.asm(426): error A2070: invalid instruction operands
+2048.asm(277): error A2070: invalid instruction operands
+2048.asm(319): error A2070: invalid instruction operands
+2048.asm(355): error A2070: invalid instruction operands
+2048.asm(388): error A2070: invalid instruction operands
+2048.asm(411): error A2070: invalid instruction operands
+2048.asm(425): error A2070: invalid instruction operands
+2048.asm(504): error A2006: undefined symbol : emptyVal
+2048.asm(529): error A2070: invalid instruction operands
+2048.asm(636): error A2070: invalid instruction operands
+2048.asm(658): error A2070: invalid instruction operands
+C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\IDE\VC\VCTargets\BuildCustomizations\masm.targets(50,5): error MSB3721: The command "ml.exe /c /nologo /Sg /Zi /Fo"Debug\2048.obj" /Fl"Project.lst" /I "c:\Irvine" /W3 /errorReport:prompt  /Ta2048.asm" exited with code 1.

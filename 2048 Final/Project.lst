@@ -1,0 +1,1451 @@
+Microsoft (R) Macro Assembler Version 14.10.25019.0	    12/12/17 22:02:26
+2048			(2048.asm			     Page 1 - 1
+
+
+				   TITLE 2048			(2048.asm)
+
+				INCLUDE Irvine32.inc
+			      C ; Include file for Irvine32.lib             (Irvine32.inc)
+			      C 
+			      C ;OPTION CASEMAP:NONE		; optional: make identifiers case-sensitive
+			      C 
+			      C INCLUDE SmallWin.inc		; MS-Windows prototypes, structures, and constants
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C INCLUDE VirtualKeys.inc
+			      C ; VirtualKeys.inc
+			      C .NOLIST
+			      C .LIST
+			      C 
+			      C 
+			      C .NOLIST
+			      C .LIST
+			      C 
+				; procedure prototypes:
+				SetColor PROTO forecolor:BYTE, backcolor: BYTE
+				WriteColorChar PROTO char:BYTE, forecolor:BYTE, backcolor:BYTE
+				PrintLine PROTO idx:BYTE
+				PrintBoard PROTO
+				RandomCell PROTO
+				TakeInput PROTO
+				ShiftLeft PROTO
+				ShiftRight PROTO
+				ShiftDown PROTO
+				ShiftUp PROTO
+				SetColors PROTO
+				MergeUp PROTO
+				MergeDown PROTO
+				MergeRight PROTO
+				MergeLeft PROTO
+
+ 00000000			.data
+ = 00000004			rowH = 4				; variable to hold the amount of squares per row
+ = 0000000F			numCell = 15			; variable to represent the 16 cells in the grid labeled 0 through 15
+ 00000000 00000000		ranCell DWORD ?			; variable to store the value of the cell randomly generated to hold a new '2'
+ 00000004 00			score BYTE 0d			; variable to store the player's score for the game
+ 00000005 53 63 6F 72 65	result BYTE "Score: ",0	; variable to hold the string that preceds the player's score
+	   3A 20 00
+
+				; these are the EQU constants which define the colors we work with 
+ 0000000D 08 0B 0E 01 05	colors BYTE 8,LightCyan,Yellow,Blue,Magenta,LightMagenta,White,Black,Red
+	   0D 0F 00 04
+
+				; these are the EQU constants which define the number values of the cells we work with
+ 00000016 00 02 04 08 10	vals BYTE 0,2,4,8,16,32,64,128,129
+	   20 40 80 81
+
+				; array of bytes to hold the colors of the cells
+				; values are not initialized to anything because they are based off of the cell values
+ 0000001F 00 00 00 00 00	cellColors BYTE	?,?,?,?,
+	   00 00 00 00 00
+	   00 00 00 00 00
+	   00
+								?,?,?,?,
+								?,?,?,?,
+								?,?,?,?		; initializes cell colors to default
+
+				; array of bytes to hold the cell values
+				; values initialized to start with the same two cells each game
+ 0000002F 00 02 00 00 00	cellVals BYTE	0,2,0,0,
+	   00 00 00 00 00
+	   02 00 00 00 00
+	   00
+								0,0,0,0,
+								0,0,2,0,
+								0,0,0,0		; initializes cell values to default
+ 0000003F 00			shiftDirection BYTE ?
+ 00000040 00			key BYTE ?
+ 00000041 00000000		rowIdx DWORD ?
+ 00000045 00000016 R		shiftArray DWORD vals[0],vals[0],vals[0],vals[0]
+	   00000016 R
+	   00000016 R
+	   00000016 R
+ 00000055 00000000		colIndex DWORD ?		; variable to hold the column index
+				; string that is sent to the screen when the player achieves the final cell value
+ 00000059 43 6F 6E 67 72	winString BYTE "Congratulations! YOU WON!!!", 0h
+	   61 74 75 6C 61
+	   74 69 6F 6E 73
+	   21 20 59 4F 55
+	   20 57 4F 4E 21
+	   21 21 00
+
+				; flag to signal when the game is over
+ 00000075 00			gameOver BYTE 0
+				; flag to indicate when a new random cell needs to be generated
+ 00000076 00			putCell BYTE 0
+
+ 00000000			.code
+ 00000000			main PROC
+ 00000000  E8 0000038F			call PrintBoard
+ 00000005  E8 00000000 E		call Randomize
+
+				; this is the mainloop which defines what runs every time the user enters a key
+				;----------------------------------------------------------------------------;
+ 0000000A			mainLoop:
+
+ 0000000A  E8 00000023			call TakeInput
+					; this is used as a flag, like a psuedo boolean type, to				 ;
+					; determine if the game was over or not		
+					.if gameOver == 1
+ 0000000F  80 3D 00000075 R
+	   01		   *	    cmp    gameOver, 001h
+ 00000016  75 02	   *	    jne    @C0001
+ 00000018  EB 11				jmp done
+					.endif
+ 0000001A		   *@C0001:
+					; this inserts a cell at a random, not already taken cell
+ 0000001A  E8 00000400			call RandomCell
+					; clears the screen before the next printBoard proc is called			 ;
+ 0000001F  E8 00000000 E		call Clrscr																 ;
+					; this prints out the board with the updated values	
+ 00000024  E8 0000036B			call PrintBoard
+ 00000029  E2 DF			loop mainLoop
+
+ 0000002B			done:
+				    exit
+ 0000002B  6A 00	   *	    push   +000000000h
+ 0000002D  E8 00000000 E   *	    call   ExitProcess
+ 00000032			main ENDP
+
+				;----------------------------------------------------------------------------;
+				; This procedure waits for input from the user, and upon input, calls the appropriate 
+				; procedures to reflect the move in our model of the game, and then the view part of the game 
+				; will be updated by the print board function in the mainloop.
+				; this will call three procedures when the user inputs a move direction.
+				; the board will shift the cells in the given direction, merge like cells in 
+				; the direction specified, and shift the cells again in the direction 
+				; specified.
+				;----------------------------------------------------------------------------;
+ 00000032			TakeInput PROC
+ 00000032  E8 00000000 E		call ReadChar
+ 00000037  A2 00000040 R		mov key,al
+					.if key == 97				
+ 0000003C  80 3D 00000040 R
+	   61		   *	    cmp    key, 061h
+ 00000043  75 11	   *	    jne    @C0003
+ 00000045  E8 0000019A				call ShiftLeft
+ 0000004A  E8 00000054				call MergeLeft
+ 0000004F  E8 00000190				call ShiftLeft
+					.elseif key == 115			
+ 00000054  EB 4C	   *	    jmp    @C0005
+ 00000056		   *@C0003:
+ 00000056  80 3D 00000040 R
+	   73		   *	    cmp    key, 073h
+ 0000005D  75 11	   *	    jne    @C0006
+ 0000005F  E8 000001CF				call ShiftDown
+ 00000064  E8 000000DA				call MergeVertical
+ 00000069  E8 000001C5				call ShiftDown
+					.elseif key == 100			
+ 0000006E  EB 32	   *	    jmp    @C0008
+ 00000070		   *@C0006:
+ 00000070  80 3D 00000040 R
+	   64		   *	    cmp    key, 064h
+ 00000077  75 11	   *	    jne    @C0009
+ 00000079  E8 00000205				call ShiftRight
+ 0000007E  E8 00000020				call MergeLeft
+ 00000083  E8 000001FB				call ShiftRight
+					.elseif key == 119			
+ 00000088  EB 18	   *	    jmp    @C000B
+ 0000008A		   *@C0009:
+ 0000008A  80 3D 00000040 R
+	   77		   *	    cmp    key, 077h
+ 00000091  75 0F	   *	    jne    @C000C
+ 00000093  E8 0000023A				call ShiftUp
+ 00000098  E8 000000A6				call MergeVertical
+ 0000009D  E8 00000230				call ShiftUp
+					.endif
+ 000000A2		   *@C000C:
+ 000000A2		   *@C000B:
+ 000000A2		   *@C0008:
+ 000000A2		   *@C0005:
+ 000000A2  C3				ret
+ 000000A3			TakeInput ENDP
+
+				;----------------------------------------------------------------------------;
+				; Although we named this as mergeLEFT, this works to merge any horizontal direction.
+				; becuase we shift, merge, then shift again, it does not matter whehter we call 
+				; a merge left or right, thus we only have one function.
+				;----------------------------------------------------------------------------;
+ 000000A3			MergeLeft PROC
+ 000000A3  BE 00000000			mov esi, 0
+ 000000A8			rowLoop:
+					; this is called because a typical loop cannot be called when			 ;
+					; the jump is this far.	
+ 000000A8  83 FE 04			cmp esi, 4
+ 000000AB  0F 84 00000091		je done
+ 000000B1  60				pushad
+
+ 000000B2  89 35 00000041 R		mov rowIdx, esi
+ 000000B8  BE 00000000			mov esi, 0
+ 000000BD				colLoop:
+ 000000BD  83 FE 03				cmp esi, 3
+ 000000C0  74 79				je innerDone
+
+ 000000C2  A1 00000041 R			mov eax, rowIdx
+ 000000C7  03 C0				add eax, eax
+ 000000C9  03 C0				add eax, eax
+ 000000CB  03 C6				add eax, esi
+
+						; this detects the level the given merging cells are at,			 ;
+						; and increases the color level by one.	
+ 000000CD  8A 98 00000030 R			mov bl, cellVals[eax+1]
+						.if cellVals[eax] == bl	;cellVals[eax+1]
+ 000000D3  38 98 0000002F R *	    cmp    cellVals + [eax], bl
+ 000000D9  75 5D	   *	    jne    @C000E
+ 000000DB  00 1D 00000004 R				add score,bl
+ 000000E1  8B F9					mov edi,ecx
+ 000000E3  B9 00000008					mov ecx,8
+ 000000E8						LeftLoop:
+ 000000E8  8A 91 00000016 R					mov dl,vals[ecx]
+								.if cellVals[eax] == dl
+ 000000EE  38 90 0000002F R *	    cmp    cellVals + [eax], dl
+ 000000F4  75 0C	   *	    jne    @C0010
+ 000000F6  8A 91 00000017 R						mov dl,vals[ecx+1]
+ 000000FC  88 90 0000002F R						mov cellVals[eax], dl
+									mov cellVals[eax+1], vals[0]
+2048.asm(156) : error A2070:invalid instruction operands
+								.endif
+ 00000102		   *@C0010:
+ 00000102  E2 E4					loop LeftLoop
+									
+							; this is the win sequence. If the user gets to the point where	 ;
+							; they are merging two cells of the highest value, they have 	 ;
+							; won the game, so this clears the screen adn prints out 		 ;
+							; a string which tells the user they have won.	
+ 00000104  8B CF					mov ecx,edi
+ 00000106  8A 15 0000001E R				mov dl,vals[8]
+							.if cellVals[eax] == dl
+ 0000010C  38 90 0000002F R *	    cmp    cellVals + [eax], dl
+ 00000112  75 24	   *	    jne    @C0012
+								invoke SetColor, white, black
+ 00000114  6A 00	   *	    push   +000000000h
+ 00000116  6A 0F	   *	    push   +00000000Fh
+ 00000118  E8 00000452	   *	    call   SetColor
+ 0000011D  E8 00000000 E					call clrscr
+ 00000122  BA 00000059 R					mov edx, offset winString
+ 00000127  E8 00000000 E					call WriteString
+ 0000012C  E8 00000000 E					call crlf
+ 00000131  C6 05 00000075 R					mov gameOver, 1
+	   01
+							.endif
+						.endif
+ 00000138		   *@C0012:
+ 00000138		   *@C000E:
+
+ 00000138  46					inc esi
+ 00000139  EB 82				jmp colLoop
+ 0000013B			innerDone:
+ 0000013B  61				popad
+ 0000013C  46				inc esi
+ 0000013D  E9 FFFFFF66			jmp rowLoop
+ 00000142			done:
+ 00000142  C3				ret
+ 00000143			MergeLeft ENDP
+
+				;----------------------------------------------------------------------------;
+				; like the merge left procedure, it does not matter whether we call merge up or merge down, so there is
+				; only one function which we call for vertical movement.
+				;----------------------------------------------------------------------------;
+ 00000143			MergeVertical PROC
+
+ 00000143  BE 00000000			mov esi, 0
+ 00000148			rowLoop:
+ 00000148  83 FE 04			cmp esi, rowH
+ 0000014B  0F 84 00000092		je done
+ 00000151  60				pushad
+
+ 00000152  89 35 00000055 R		mov colIndex, esi
+ 00000158  BE 00000000			mov esi, 0
+ 0000015D				colLoop:
+ 0000015D  83 FE 03				cmp esi, 3
+ 00000160  74 7A				je innerDone
+
+ 00000162  8B C6				mov eax, esi
+ 00000164  03 C0				add eax, eax
+ 00000166  03 C0				add eax, eax
+ 00000168  03 05 00000055 R			add eax, colIndex
+
+						
+ 0000016E  8A 98 00000033 R			mov bl, cellVals[eax+rowH]
+						.if cellVals[eax] == bl	;cellVals[eax+rowH]
+ 00000174  38 98 0000002F R *	    cmp    cellVals + [eax], bl
+ 0000017A  75 5D	   *	    jne    @C0014
+ 0000017C  00 1D 00000004 R				add score,bl
+ 00000182  8B F9					mov edi,ecx
+ 00000184  B9 00000008					mov ecx,8
+ 00000189						VertLoop:
+ 00000189  8A 91 00000016 R					mov dl,vals[ecx]
+								.if cellVals[eax] == dl
+ 0000018F  38 90 0000002F R *	    cmp    cellVals + [eax], dl
+ 00000195  75 0C	   *	    jne    @C0016
+ 00000197  8A 91 00000017 R						mov dl,vals[ecx+1]
+ 0000019D  88 90 0000002F R						mov cellVals[eax], dl
+									mov cellVals[eax+rowH], vals[0]
+2048.asm(220) : error A2070:invalid instruction operands
+								.endif
+ 000001A3		   *@C0016:
+ 000001A3  E2 E4					loop VertLoop
+ 000001A5  8B CF					mov ecx,edi
+
+ 000001A7  8A 15 0000001E R				mov dl,vals[8]
+							.if cellVals[eax] == dl
+ 000001AD  38 90 0000002F R *	    cmp    cellVals + [eax], dl
+ 000001B3  75 24	   *	    jne    @C0018
+								invoke SetColor, white, black
+ 000001B5  6A 00	   *	    push   +000000000h
+ 000001B7  6A 0F	   *	    push   +00000000Fh
+ 000001B9  E8 000003B1	   *	    call   SetColor
+ 000001BE  E8 00000000 E					call clrscr
+ 000001C3  BA 00000059 R					mov edx, offset winString
+ 000001C8  E8 00000000 E					call WriteString
+ 000001CD  E8 00000000 E					call crlf
+ 000001D2  C6 05 00000075 R					mov gameOver, 1
+	   01
+							.endif
+						.endif
+ 000001D9		   *@C0018:
+ 000001D9		   *@C0014:
+
+ 000001D9  46					inc esi
+ 000001DA  EB 81				jmp colLoop
+ 000001DC			innerDone:
+ 000001DC  61				popad
+ 000001DD  46				inc esi
+ 000001DE  E9 FFFFFF65			jmp rowLoop
+ 000001E3			done:
+
+ 000001E3  C3				ret
+ 000001E4			MergeVertical ENDP
+
+				;----------------------------------------------------------------------------;
+				; This set of procedures are all the same in how they function, they just go in different 
+				; directions. 
+				;----------------------------------------------------------------------------;
+ 000001E4			ShiftLeft PROC
+ 000001E4  80 05 00000004 R		add score,0
+	   00
+ 000001EB  BE 00000000			mov esi, 0
+				; the loop will run 4 times, iterating over the four rows of the board	  ;
+ 000001F0			rowLoop:
+ 000001F0  83 FE 04			cmp esi, rowH
+ 000001F3  74 3D			je done
+ 000001F5  60				pushad
+					; clears the array which holds the values of the board as they are shifted;
+					mov shiftArray[0], vals[0]
+2048.asm(260) : error A2070:invalid instruction operands
+					mov shiftArray[4], vals[0]
+2048.asm(261) : error A2070:invalid instruction operands
+					mov shiftArray[8], vals[0]
+2048.asm(262) : error A2070:invalid instruction operands
+					mov shiftArray[12], vals[0]
+2048.asm(263) : error A2070:invalid instruction operands
+ 000001F6  89 35 00000041 R		mov rowIdx, esi
+ 000001FC  BE 00000000			mov esi, 0
+ 00000201				colLoop:
+ 00000201  83 FE 04				cmp esi, rowH
+ 00000204  74 23				je innerDone
+ 00000206  A1 00000041 R			mov eax, rowIdx
+ 0000020B  03 C0				add eax, eax
+ 0000020D  03 C0				add eax, eax
+ 0000020F  03 C6				add eax, esi
+						; if the element of the board at the given point is not blank, then   ;
+						; is appended to our shift arrray before being moved into the actual  ;
+						; array. this functions to shift all the cells in the board in a 	  ;
+						; given row to one direction.	
+						.if cellVals[eax] != vals[0]
+2048.asm(277) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [eax], vals + [000h]
+ 00000211  74 13	   *	    je	@C001A
+ 00000213  E8 000003C8					call append
+						.endif
+ 00000226		   *@C001A:
+ 00000226  46					inc esi
+ 00000227  EB D8				jmp colLoop
+ 00000229			innerDone:
+ 00000229  E8 00000360			call transferArray
+ 0000022E  61				popad
+ 0000022F  46				inc esi
+ 00000230  EB BE			jmp rowLoop
+ 00000232			done:
+ 00000232  C3				ret
+ 00000233			ShiftLeft ENDP
+
+				; this does the same thing as shift left, but instead of iteratng over the 	  ;
+				; rows of the board, it iterates over the columns to shift down.			  ;
+				; This also calls the append reversed function, as it is shifting opposite of ;
+				; the other shift function.	
+ 00000233			ShiftDown PROC
+ 00000233  80 05 00000004 R		add score,0
+	   00
+ 0000023A  BE 00000000			mov esi, 0
+ 0000023F			rowLoop:
+ 0000023F  83 FE 04			cmp esi, rowH
+ 00000242  74 3E			je done
+ 00000244  60				pushad
+
+					; this clears the array wihch will be filled so that the append method 	  ;
+					; works as it is supposed to. 	
+					mov shiftArray[0], vals[0]
+2048.asm(305) : error A2070:invalid instruction operands
+					mov shiftArray[4], vals[0]
+2048.asm(306) : error A2070:invalid instruction operands
+					mov shiftArray[8], vals[0]
+2048.asm(307) : error A2070:invalid instruction operands
+					mov shiftArray[12], vals[0]
+2048.asm(308) : error A2070:invalid instruction operands
+ 00000245  89 35 00000041 R		mov rowIdx, esi
+ 0000024B  BE 00000004			mov esi, rowH
+ 00000250				colLoop:
+ 00000250  83 FE 00				cmp esi, 0
+ 00000253  74 24				je innerDone
+ 00000255  4E					dec esi
+ 00000256  8B C6				mov eax, esi
+ 00000258  03 C0				add eax, eax
+ 0000025A  03 C0				add eax, eax
+ 0000025C  03 05 00000041 R			add eax, rowIdx
+						.if cellVals[eax] != vals[0]
+2048.asm(319) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [eax], vals + [000h]
+ 00000262  74 13	   *	    je	@C001C
+ 00000264  E8 000003A7					call appendReversed
+						.endif
+ 00000277		   *@C001C:
+ 00000277  EB D7				jmp colLoop
+ 00000279			innerDone:
+ 00000279  E8 00000339			call transferTransposedArray
+ 0000027E  61				popad
+ 0000027F  46				inc esi
+ 00000280  EB BD			jmp rowLoop
+ 00000282			done:
+ 00000282  C3				ret
+ 00000283			ShiftDown ENDP
+
+				; same as the shift left procedure, but appends the cells and reprints 		  ;
+				; them to the right instead of to the left.	
+ 00000283			ShiftRight PROC
+ 00000283  80 05 00000004 R		add score,0
+	   00
+ 0000028A  BE 00000000			mov esi, 0
+ 0000028F			rowLoop:
+ 0000028F  83 FE 04			cmp esi, rowH
+ 00000292  74 3D			je done
+ 00000294  60				pushad
+					mov shiftArray[0], vals[0]
+2048.asm(341) : error A2070:invalid instruction operands
+					mov shiftArray[4], vals[0]
+2048.asm(342) : error A2070:invalid instruction operands
+					mov shiftArray[8], vals[0]
+2048.asm(343) : error A2070:invalid instruction operands
+					mov shiftArray[12], vals[0]
+2048.asm(344) : error A2070:invalid instruction operands
+ 00000295  89 35 00000041 R		mov rowIdx, esi
+ 0000029B  BE 00000004			mov esi, rowH
+ 000002A0				colLoop:
+ 000002A0  83 FE 00				cmp esi, 0
+ 000002A3  74 23				je innerDone
+ 000002A5  4E					dec esi
+ 000002A6  A1 00000041 R			mov eax, rowIdx
+ 000002AB  03 C0				add eax, eax
+ 000002AD  03 C0				add eax, eax
+ 000002AF  03 C6				add eax, esi
+						.if cellVals[eax] != vals[0]
+2048.asm(355) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [eax], vals + [000h]
+ 000002B1  74 13	   *	    je	@C001E
+ 000002B3  E8 00000358					call appendReversed
+						.endif
+ 000002C6		   *@C001E:
+ 000002C6  EB D8				jmp colLoop
+ 000002C8			innerDone:
+ 000002C8  E8 000002C1			call transferArray
+ 000002CD  61				popad
+ 000002CE  46				inc esi
+ 000002CF  EB BE			jmp rowLoop
+ 000002D1			done:
+ 000002D1  C3				ret
+ 000002D2			ShiftRight ENDP
+
+ 000002D2			ShiftUp PROC
+ 000002D2  BE 00000000			mov esi, 0
+ 000002D7  80 05 00000004 R		add score,0
+	   00
+ 000002DE			rowLoop:
+ 000002DE  83 FE 04			cmp esi, rowH
+ 000002E1  74 3E			je done
+ 000002E3  60				pushad
+					mov shiftArray[0], vals[0]
+2048.asm(375) : error A2070:invalid instruction operands
+					mov shiftArray[4], vals[0]
+2048.asm(376) : error A2070:invalid instruction operands
+					mov shiftArray[8], vals[0]
+2048.asm(377) : error A2070:invalid instruction operands
+					mov shiftArray[12], vals[0]
+2048.asm(378) : error A2070:invalid instruction operands
+ 000002E4  89 35 00000041 R		mov rowIdx, esi
+ 000002EA  BE 00000000			mov esi, 0
+ 000002EF				colLoop:
+ 000002EF  83 FE 04				cmp esi, rowH
+ 000002F2  74 24				je innerDone
+ 000002F4  8B C6				mov eax, esi
+ 000002F6  03 C0				add eax, eax
+ 000002F8  03 C0				add eax, eax
+ 000002FA  03 05 00000041 R			add eax, rowIdx
+						.if cellVals[eax] != vals[0]
+2048.asm(388) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [eax], vals + [000h]
+ 00000300  74 13	   *	    je	@C0020
+ 00000302  E8 000002D9					call append
+						.endif
+ 00000315		   *@C0020:
+ 00000315  46					inc esi
+ 00000316  EB D7			jmp colLoop
+ 00000318			innerDone:
+ 00000318  E8 0000029A			call transferTransposedArray
+ 0000031D  61				popad
+ 0000031E  46				inc esi
+ 0000031F  EB BD			jmp rowLoop
+ 00000321			done:
+ 00000321  C3				ret
+ 00000322			ShiftUp ENDP
+
+				;----------------------------------------------------------------------------;;
+				; this iterates through all the elements of the board, assigning the  
+				; appropriate colors to correspond with the cell value
+				;----------------------------------------------------------------------------;;
+ 00000322			SetColors PROC
+ 00000322  8B F1			mov esi,ecx
+ 00000324  B9 0000000F			mov ecx,numCell
+ 00000329				NewColor:
+ 00000329  8B D9				mov ebx,ecx
+						.if cellVals[ebx] == vals[0]
+2048.asm(411) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [ebx], vals + [000h]
+ 0000032B  75 0E	   *	    jne    @C0022
+
+							mov cellColors[ebx], colors[0]
+2048.asm(412) : error A2070:invalid instruction operands
+ 0000033B		   *@C0022:
+ 0000033B  B9 00000008				.endif
+ 00000340					mov ecx,8
+ 00000340  8A 81 00000016 R			ColorCheck:
+							mov al,vals[ecx]
+ 00000346  38 83 0000002F R *	    cmp    cellVals + [ebx], al
+ 0000034C  75 0C	   *	    jne    @C0024
+ 0000034E  8A 91 0000000D R				.if cellVals[ebx] == al
+ 00000354  88 93 0000001F R					mov dl,colors[ecx]
+								mov cellColors[ebx],dl
+ 0000035A		   *@C0024:
+ 0000035A  E2 E4					.endif
+ 0000035C  8B CB				Loop ColorCheck
+ 0000035E  E2 C9				mov ecx,ebx
+					Loop NewColor
+
+2048.asm(425) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [000h], vals + [000h]
+ 00000360  75 0E	   *	    jne    @C0026
+
+					.if cellVals[0] == vals[0]
+2048.asm(426) : error A2070:invalid instruction operands
+ 00000370		   *@C0026:
+ 00000370  B9 00000008			mov cellColors[0], colors[0]
+ 00000375				.endif
+ 00000375  8A 81 00000016 R		mov ecx,8
+					ColorCheck0:
+ 0000037B  38 05 0000002F R *	    cmp    cellVals + [000h], al
+ 00000381  75 0C	   *	    jne    @C0028
+ 00000383  8A 91 0000000D R			mov al,vals[ecx]
+ 00000389  88 15 0000001F R			.if cellVals[0] == al
+							mov dl,colors[ecx]
+ 0000038F		   *@C0028:
+ 0000038F  E2 E4					mov cellColors[0],dl
+						.endif
+ 00000391  8B CE			Loop ColorCheck0
+ 00000393  C3
+ 00000394				mov ecx,esi
+					ret
+				SetColors ENDP
+
+				;----------------------------------------------------------------------------;;
+				; this iterates through all the elements of the board, printing them out with 
+				; our custom print line procedure, which calls our custom set color and 
+ 00000394			; write colored char procedures
+				;----------------------------------------------------------------------------;;
+ 00000394  E8 FFFFFF89	   *	    call   SetColors
+				PrintBoard PROC
+ 00000399  B9 00000004			INVOKE SetColors
+ 0000039E
+					mov ecx,rowH
+ 0000039E  6A 00	   *	    push   +000000000h
+ 000003A0  E8 000000C4	   *	    call   PrintLine
+ 000003A5  E8 00000000 E		L1:		; loop for printing row 1
+ 000003AA  E2 F2				INVOKE PrintLine, 0
+						call Crlf
+ 000003AC  B9 00000004			loop L1
+ 000003B1
+					mov ecx,rowH
+ 000003B1  6A 04	   *	    push   +000000004h
+ 000003B3  E8 000000B1	   *	    call   PrintLine
+ 000003B8  E8 00000000 E		L2:		; loop for printing row 2
+ 000003BD  E2 F2				INVOKE PrintLine, 4
+						call Crlf
+ 000003BF  B9 00000004			loop L2
+ 000003C4				
+					mov ecx,rowH
+ 000003C4  6A 08	   *	    push   +000000008h
+ 000003C6  E8 0000009E	   *	    call   PrintLine
+ 000003CB  E8 00000000 E		L3:		; loop for printing row 3
+ 000003D0  E2 F2				INVOKE PrintLine, 8
+						call Crlf
+ 000003D2  B9 00000004			loop L3
+ 000003D7
+					mov ecx,rowH
+ 000003D7  6A 0C	   *	    push   +00000000Ch
+ 000003D9  E8 0000008B	   *	    call   PrintLine
+ 000003DE  E8 00000000 E		L4:		; loop for printing row 4
+ 000003E3  E2 F2				INVOKE PrintLine, 12
+						call Crlf
+					loop L4
+ 000003E5  6A 00	   *	    push   +000000000h
+ 000003E7  A0 0000000D R   *	    mov    al, colors
+ 000003EC  50		   *	    push   eax
+ 000003ED  E8 0000017D	   *	    call   SetColor
+
+ 000003F2  BA 00000005 R		INVOKE SetColor,colors[0],black
+ 000003F7  E8 00000000 E
+					mov edx,OFFSET result
+ 000003FC  B8 00000000			call WriteString
+ 00000401  BB 00000000
+ 00000406  A0 00000004 R		mov eax,0
+ 0000040B  E8 00000000 E		mov ebx,0
+					mov al,score
+					call WriteInt
+
+ 00000410  6A 00	   *	    push   +000000000h
+ 00000412  6A 00	   *	    push   +000000000h
+ 00000414  E8 00000156	   *	    call   SetColor
+ 00000419  E8 00000000 E
+ 0000041E  C3			    INVOKE SetColor, black, black ; return to normal color
+ 0000041F			    call Crlf
+					ret
+				PrintBoard ENDP
+				;----------------------------------------------------------------------------;;
+
+				; this repeates a loop which continually generates random cells until it 
+ 0000041F			; finds an empty cell, and places it there in our model. 
+ 0000041F  C6 05 00000076 R	;----------------------------------------------------------------------------;
+	   00
+				RandomCell PROC
+ 00000426		   *@C002A:
+ 00000426  B8 0000000F			mov putCell, 0
+ 0000042B  E8 00000000 E		.repeat
+ 00000430  A3 00000000 R			mov eax,numCell
+						call RandomRange
+ 00000435  A1 00000000 R			mov ranCell,eax
+
+						mov eax, ranCell
+						; tests to see if the cell it's looking at is already taken 		 ;
+						; by another cell, if not, it will loop again. If so, 				 ;
+2048.asm(504) : error A2006:undefined symbol : emptyVal
+			   *	    cmp    
+ 0000043A  75 23	   *	    jne    @C002B
+ 0000043C  FE 05 00000076 R			; the loop will terminate.			
+ 00000442  8D 35 0000002F R			.if cellVals[eax] == emptyVal
+ 00000448  03 35 00000000 R				inc putCell
+ 0000044E  C6 06 02					lea esi,cellVals			; adds tile color to random cell
+							add esi,ranCell
+							mov BYTE PTR [esi],2
+						.endif
+ 0000045F		   *@C002B:
+ 0000045F  80 3D 00000076 R
+	   01		   *	    cmp    putCell, 001h
+ 00000466  75 BE	   *	    jne    @C002A
+ 00000468  C3					
+ 00000469				.until putCell == 1
+					ret
+				RandomCell ENDP
+
+				;----------------------------------------------------------------------------;
+				; custom print line function which prints a single row at a time, as well
+				; as sets the color according to the cell's element in our model of the 
+ 00000469			; board.
+ 00000469  55		   *	    push   ebp
+ 0000046A  8B EC	   *	    mov    ebp, esp
+ 0000046C  0F B6 55 08		;----------------------------------------------------------------------------;
+ 00000470  8B F1		PrintLine PROC idx:BYTE
+					movzx edx, idx
+ 00000472  BF 00000000			mov esi,ecx
+ 00000477  B9 00000004
+ 0000047C				mov edi,0
+					mov ecx,rowH
+ 0000047C  8A 84 17
+	   0000001F R	   *	    mov    al, cellColors[edi+edx]
+ 00000483  50		   *	    push   eax
+ 00000484  A0 0000000D R   *	    mov    al, colors
+ 00000489  50		   *	    push   eax
+ 0000048A  6A 20	   *	    push   +000000020h
+ 0000048C  E8 00000081	   *	    call   WriteColorChar
+					PrintLoop:
+						INVOKE WriteColorChar, ' ', colors[0], cellColors[edx+edi]
+2048.asm(529) : error A2070:invalid instruction operands
+			   *	    cmp    cellVals + [edx + edi], vals + [000h]
+ 00000491  74 61	   *	    je	@C002E
+ 00000493  83 FE 01	   *	    cmp    esi, 001h
+ 00000496  75 5C	   *	    jne    @C002E
+ 00000498  B8 00000000
+ 0000049D  BB 00000000				.if cellVals[edx+edi] != vals[0] && esi==1
+ 000004A2  8A 84 17					mov eax,0
+	   0000002F R
+ 000004A9  B3 01					mov ebx,0
+ 000004AB  E8 00000000 E				mov al,cellVals[edx+edi]
+							mov bl,TYPE cellVals[edx+edi]
+							call WriteHexB
+ 000004B0  8A 84 17
+	   0000001F R	   *	    mov    al, cellColors[edi+edx]
+ 000004B7  50		   *	    push   eax
+ 000004B8  A0 0000000D R   *	    mov    al, colors
+ 000004BD  50		   *	    push   eax
+ 000004BE  E8 000000AC	   *	    call   SetColor
+ 000004C3  B0 20
+ 000004C5  E8 00000000 E				INVOKE SetColor, colors[0], cellColors[edx+edi]
+							mov al, ' '
+ 000004CA  8A 84 17
+	   0000001F R	   *	    mov    al, cellColors[edi+edx]
+ 000004D1  50		   *	    push   eax
+ 000004D2  A0 0000000D R   *	    mov    al, colors
+ 000004D7  50		   *	    push   eax
+ 000004D8  E8 00000092	   *	    call   SetColor
+ 000004DD  B0 20					call WriteChar
+ 000004DF  E8 00000000 E				INVOKE SetColor, colors[0], cellColors[edx+edi]
+							mov al, ' '
+							call WriteChar
+ 000004E4  EB 23	   *	    jmp    @C0031
+ 000004F4		   *@C002E:
+
+ 000004F4  8A 84 17
+	   0000001F R	   *	    mov    al, cellColors[edi+edx]
+ 000004FB  50		   *	    push   eax
+ 000004FC  A0 0000000D R   *	    mov    al, colors
+ 00000501  50		   *	    push   eax
+ 00000502  6A 20	   *	    push   +000000020h
+ 00000504  E8 00000009	   *	    call   WriteColorChar
+						.else
+ 00000509		   *@C0031:
+							INVOKE WriteColorChar, ' ', colors[0], cellColors[edx+edi]
+ 00000509  47					.endif
+ 0000050A  E2 00
+						inc edi
+ 0000050C  8B CE			loop PrintLoop
+
+ 0000050E  C9		   *	    leave  
+ 0000050F  C2 0004	   *	    ret    00004h
+ 00000512				mov ecx,esi
+				    ret
+				PrintLine ENDP
+
+				;----------------------------------------------------------------------------;
+				; this writes out four characters, along with the forecolor and background color,
+				; which makes up one square of our board. One swuare from our board is four characters
+ 00000512			; and this proc converts one cell from our board model to our view.
+ 00000512  55		   *	    push   ebp
+ 00000513  8B EC	   *	    mov    ebp, esp
+ 00000515  50		   *	    push   eax
+				;----------------------------------------------------------------------------;
+ 00000516  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 00000519  50		   *	    push   eax
+ 0000051A  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 0000051D  50		   *	    push   eax
+ 0000051E  E8 0000004C	   *	    call   SetColor
+ 00000523  8A 45 08		WriteColorChar PROC USES eax, char:BYTE, forecolor:BYTE, backcolor:BYTE 
+ 00000526  E8 00000000 E	    INVOKE SetColor, forecolor, backcolor
+				    mov al, char
+ 0000052B  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 0000052E  50		   *	    push   eax
+ 0000052F  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 00000532  50		   *	    push   eax
+ 00000533  E8 00000037	   *	    call   SetColor
+ 00000538  8A 45 08		    call WriteChar
+ 0000053B  E8 00000000 E		INVOKE SetColor, forecolor, backcolor
+				    mov al, char
+ 00000540  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 00000543  50		   *	    push   eax
+ 00000544  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 00000547  50		   *	    push   eax
+ 00000548  E8 00000022	   *	    call   SetColor
+ 0000054D  8A 45 08		    call WriteChar
+ 00000550  E8 00000000 E		INVOKE SetColor, forecolor, backcolor
+				    mov al, char
+ 00000555  8A 45 10	   *	    mov    al, byte  ptr ss:[ebp]+010h
+ 00000558  50		   *	    push   eax
+ 00000559  8A 45 0C	   *	    mov    al, byte  ptr ss:[ebp]+00Ch
+ 0000055C  50		   *	    push   eax
+ 0000055D  E8 0000000D	   *	    call   SetColor
+ 00000562  8A 45 08		    call WriteChar
+ 00000565  E8 00000000 E		INVOKE SetColor, forecolor, backcolor
+				    mov al, char
+ 0000056A  58		   *	    pop    eax
+ 0000056B  C9		   *	    leave  
+ 0000056C  C2 000C	   *	    ret    0000Ch
+ 0000056F			    call WriteChar
+				    ret
+ 0000056F			WriteColorChar ENDP
+ 0000056F  55		   *	    push   ebp
+ 00000570  8B EC	   *	    mov    ebp, esp
+ 00000572  60
+ 00000573  0F B6 45 0C		SetColor PROC, forecolor:BYTE, backcolor:BYTE
+ 00000577  BB 00000010			pushad
+ 0000057C  F7 E3			movzx eax, backcolor
+ 0000057E  0F B6 5D 08			mov ebx, 16
+ 00000582  03 C3			mul ebx
+ 00000584  E8 00000000 E		movzx ebx, forecolor
+ 00000589  61				add eax, ebx
+					call SetTextColor       ; from Irvine32.lib
+ 0000058A  C9		   *	    leave  
+ 0000058B  C2 0008	   *	    ret    00008h
+ 0000058E				popad
+				    ret
+				SetColor ENDP
+
+				; These are the procedures used to transfer the array that has been appended to
+ 0000058E			; in the shifting and merging functions to the actual model of our board.
+ 0000058E  60			;----------------------------------------------------------------------------;
+ 0000058F  B9 00000004		transferArray PROC
+ 00000594  BE 00000000			pushad
+ 00000599				mov ecx, rowH
+ 00000599  8B 14 B5			mov esi, 0
+	   00000045 R
+ 000005A0  8B 1D 00000041 R		fill:
+ 000005A6  03 DB				mov edx, shiftArray[esi*rowH]
+ 000005A8  03 DB				mov ebx, rowIdx
+ 000005AA  03 DE				add ebx, ebx
+ 000005AC  88 93 0000002F R			add ebx, ebx
+ 000005B2  46					add ebx, esi
+ 000005B3  E2 E4				mov cellVals[ebx], dl
+ 000005B5  61					inc esi
+ 000005B6  C3				loop fill
+ 000005B7				popad
+					ret
+				transferArray ENDP
+
+ 000005B7			; this is the same as the last procedure, but iterates over columns 		 ;
+ 000005B7  60			; instead of rows.	
+ 000005B8  B9 00000004		transferTransposedArray PROC
+ 000005BD  BE 00000000			pushad
+ 000005C2				mov ecx, rowH
+ 000005C2  8B 14 B5			mov esi, 0
+	   00000045 R
+ 000005C9  8B DE			fill:
+ 000005CB  03 DB				mov edx, shiftArray[esi*rowH]
+ 000005CD  03 DB				mov ebx, esi
+ 000005CF  03 1D 00000041 R			add ebx, ebx
+ 000005D5  88 93 0000002F R			add ebx, ebx
+ 000005DB  46					add ebx, rowIdx
+ 000005DC  E2 E4				mov cellVals[ebx], dl
+ 000005DE  61					inc esi
+ 000005DF  C3				loop fill
+ 000005E0				popad
+					ret
+				transferTransposedArray ENDP
+
+				;----------------------------------------------------------------------------;
+				; This is our makeshift array appending method. It iterates through the array 
+				; until it found an emtpy element of the array, and inserts the given value
+ 000005E0			; when that value is found.
+ 000005E0  60			;----------------------------------------------------------------------------;
+ 000005E1  B9 00000004		append PROC
+ 000005E6  BE 00000000			pushad
+ 000005EB				mov ecx, rowH
+					mov esi, 0
+2048.asm(636) : error A2070:invalid instruction operands
+			   *	    cmp    shiftArray + [esi * rowH], vals + [000h]
+ 000005EB  75 1E	   *	    jne    @C0032
+ 000005ED  0F B6 98			appendValue:
+	   0000002F R
+ 000005F4  89 1C B5				.if shiftArray[esi*rowH] == vals[0]
+	   00000045 R
+ 000005FB  EB 11					movzx ebx, cellVals[eax]
+							mov shiftArray[esi*rowH], ebx
+ 0000060B		   *@C0032:
+ 0000060B  46						jmp outOfLoop
+ 0000060C  E2 DD				.endif
+ 0000060E					inc esi
+ 0000060E  61				loop appendValue
+ 0000060F  C3				outOfLoop:
+ 00000610				popad
+					ret
+				append ENDP
+
+				;----------------------------------------------------------------------------;
+ 00000610			; this does the same thing as the previous procedurem, but in reverse for	 ;
+ 00000610  60			; the left vs right and up vs down merging procedures.
+ 00000611  BE 00000004		appendReversed PROC
+ 00000616				pushad
+ 00000616  83 FE 00			mov esi, rowH
+ 00000619  74 23			appendValue:
+ 0000061B  4E					cmp esi, 0
+						je outOfLoop
+2048.asm(658) : error A2070:invalid instruction operands
+			   *	    cmp    shiftArray + [esi * rowH], vals + [000h]
+ 0000061C  75 1E	   *	    jne    @C0034
+ 0000061E  0F B6 98				dec esi
+	   0000002F R
+ 00000625  89 1C B5				.if shiftArray[esi*rowH] == vals[0]
+	   00000045 R
+ 0000062C  EB 10					movzx ebx, cellVals[eax]
+							mov shiftArray[esi*rowH], ebx
+ 0000063C		   *@C0034:
+ 0000063C  E2 D8					jmp outOfLoop
+ 0000063E					.endif
+ 0000063E  61				loop appendValue
+ 0000063F  C3				outOfLoop:
+ 00000640				popad
+					ret
+				appendReversed ENDP
+
+Microsoft (R) Macro Assembler Version 14.10.25019.0	    12/12/17 22:02:26
+2048			(2048.asm			     Symbols 2 - 1
+
+
+
+
+Structures and Unions:
+
+                N a m e                  Size
+                                         Offset      Type
+
+CONSOLE_CURSOR_INFO  . . . . . .	 00000008
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  bVisible . . . . . . . . . . .	 00000004	 DWord
+CONSOLE_SCREEN_BUFFER_INFO . . .	 00000016
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  dwCursorPosition . . . . . . .	 00000004	 DWord
+  wAttributes  . . . . . . . . .	 00000008	 Word
+  srWindow . . . . . . . . . . .	 0000000A	 QWord
+  dwMaximumWindowSize  . . . . .	 00000012	 DWord
+COORD  . . . . . . . . . . . . .	 00000004
+  X  . . . . . . . . . . . . . .	 00000000	 Word
+  Y  . . . . . . . . . . . . . .	 00000002	 Word
+FILETIME . . . . . . . . . . . .	 00000008
+  loDateTime . . . . . . . . . .	 00000000	 DWord
+  hiDateTime . . . . . . . . . .	 00000004	 DWord
+FOCUS_EVENT_RECORD . . . . . . .	 00000004
+  bSetFocus  . . . . . . . . . .	 00000000	 DWord
+FPU_ENVIRON  . . . . . . . . . .	 0000001C
+  controlWord  . . . . . . . . .	 00000000	 Word
+  statusWord . . . . . . . . . .	 00000004	 Word
+  tagWord  . . . . . . . . . . .	 00000008	 Word
+  instrPointerOffset . . . . . .	 0000000C	 DWord
+  instrPointerSelector . . . . .	 00000010	 DWord
+  operandPointerOffset . . . . .	 00000014	 DWord
+  operandPointerSelector . . . .	 00000018	 Word
+INPUT_RECORD . . . . . . . . . .	 00000014
+  EventType  . . . . . . . . . .	 00000000	 Word
+  Event  . . . . . . . . . . . .	 00000004	 XmmWord
+  bKeyDown . . . . . . . . . . .	 00000000	 DWord
+  wRepeatCount . . . . . . . . .	 00000004	 Word
+  wVirtualKeyCode  . . . . . . .	 00000006	 Word
+  wVirtualScanCode . . . . . . .	 00000008	 Word
+  uChar  . . . . . . . . . . . .	 0000000A	 Word
+  UnicodeChar  . . . . . . . . .	 00000000	 Word
+  AsciiChar  . . . . . . . . . .	 00000000	 Byte
+  dwControlKeyState  . . . . . .	 0000000C	 DWord
+  dwMousePosition  . . . . . . .	 00000000	 DWord
+  dwButtonState  . . . . . . . .	 00000004	 DWord
+  dwMouseControlKeyState . . . .	 00000008	 DWord
+  dwEventFlags . . . . . . . . .	 0000000C	 DWord
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+  dwCommandId  . . . . . . . . .	 00000000	 DWord
+  bSetFocus  . . . . . . . . . .	 00000000	 DWord
+KEY_EVENT_RECORD . . . . . . . .	 00000010
+  bKeyDown . . . . . . . . . . .	 00000000	 DWord
+  wRepeatCount . . . . . . . . .	 00000004	 Word
+  wVirtualKeyCode  . . . . . . .	 00000006	 Word
+  wVirtualScanCode . . . . . . .	 00000008	 Word
+  uChar  . . . . . . . . . . . .	 0000000A	 Word
+  UnicodeChar  . . . . . . . . .	 00000000	 Word
+  AsciiChar  . . . . . . . . . .	 00000000	 Byte
+  dwControlKeyState  . . . . . .	 0000000C	 DWord
+MENU_EVENT_RECORD  . . . . . . .	 00000004
+  dwCommandId  . . . . . . . . .	 00000000	 DWord
+MOUSE_EVENT_RECORD . . . . . . .	 00000010
+  dwMousePosition  . . . . . . .	 00000000	 DWord
+  dwButtonState  . . . . . . . .	 00000004	 DWord
+  dwMouseControlKeyState . . . .	 00000008	 DWord
+  dwEventFlags . . . . . . . . .	 0000000C	 DWord
+SMALL_RECT . . . . . . . . . . .	 00000008
+  Left . . . . . . . . . . . . .	 00000000	 Word
+  Top  . . . . . . . . . . . . .	 00000002	 Word
+  Right  . . . . . . . . . . . .	 00000004	 Word
+  Bottom . . . . . . . . . . . .	 00000006	 Word
+SYSTEMTIME . . . . . . . . . . .	 00000010
+  wYear  . . . . . . . . . . . .	 00000000	 Word
+  wMonth . . . . . . . . . . . .	 00000002	 Word
+  wDayOfWeek . . . . . . . . . .	 00000004	 Word
+  wDay . . . . . . . . . . . . .	 00000006	 Word
+  wHour  . . . . . . . . . . . .	 00000008	 Word
+  wMinute  . . . . . . . . . . .	 0000000A	 Word
+  wSecond  . . . . . . . . . . .	 0000000C	 Word
+  wMilliseconds  . . . . . . . .	 0000000E	 Word
+WINDOW_BUFFER_SIZE_RECORD  . . .	 00000004
+  dwSize . . . . . . . . . . . .	 00000000	 DWord
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000077 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000640 Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+CloseFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CloseHandle  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Clrscr . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CreateFileA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+CreateOutputFile . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Crlf . . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Delay  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DumpMem  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+DumpRegs . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ExitProcess  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FileTimeToDosDateTime  . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FileTimeToSystemTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FlushConsoleInputBuffer  . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+FormatMessageA . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetCommandLineA  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetCommandTail . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleCP . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetConsoleScreenBufferInfo . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetDateTime  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetFileTime  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetKeyState  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetLastError . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetMaxXY . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetMseconds  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetNumberOfConsoleInputEvents  .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetProcessHeap . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetStdHandle . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetSystemTime  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+GetTickCount . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Gotoxy . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapAlloc  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapCreate . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapDestroy  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapFree . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+HeapSize . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+IsDigit  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+LocalFree  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeDown  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeLeft  . . . . . . . . . . .	P Near	 000000A3 _TEXT	Length= 000000A0 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000000A8 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 000000BD _TEXT	
+  LeftLoop . . . . . . . . . . .	L Near	 000000E8 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 0000013B _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000142 _TEXT	
+MergeRight . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeUp  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MergeVertical  . . . . . . . . .	P Near	 00000143 _TEXT	Length= 000000A1 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 00000148 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 0000015D _TEXT	
+  VertLoop . . . . . . . . . . .	L Near	 00000189 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 000001DC _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000001E3 _TEXT	
+MessageBoxA  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MsgBoxAsk  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+MsgBox . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+OpenInputFile  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ParseDecimal32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ParseInteger32 . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+PeekConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+PrintBoard . . . . . . . . . . .	P Near	 00000394 _TEXT	Length= 0000008B Public STDCALL
+  L1 . . . . . . . . . . . . . .	L Near	 0000039E _TEXT	
+  L2 . . . . . . . . . . . . . .	L Near	 000003B1 _TEXT	
+  L3 . . . . . . . . . . . . . .	L Near	 000003C4 _TEXT	
+  L4 . . . . . . . . . . . . . .	L Near	 000003D7 _TEXT	
+PrintLine  . . . . . . . . . . .	P Near	 00000469 _TEXT	Length= 000000A9 Public STDCALL
+  idx  . . . . . . . . . . . . .	Byte	 bp + 00000008
+  PrintLoop  . . . . . . . . . .	L Near	 0000047C _TEXT	
+Random32 . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+RandomCell . . . . . . . . . . .	P Near	 0000041F _TEXT	Length= 0000004A Public STDCALL
+RandomRange  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Randomize  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadChar . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleA . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadConsoleInputA  . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadDec  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFile . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFloat  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadFromFile . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadHex  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadInt  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadKeyFlush . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadKey  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ReadString . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetColors  . . . . . . . . . . .	P Near	 00000322 _TEXT	Length= 00000072 Public STDCALL
+  NewColor . . . . . . . . . . .	L Near	 00000329 _TEXT	
+  ColorCheck . . . . . . . . . .	L Near	 00000340 _TEXT	
+  ColorCheck0  . . . . . . . . .	L Near	 00000375 _TEXT	
+SetColor . . . . . . . . . . . .	P Near	 0000056F _TEXT	Length= 0000001F Public STDCALL
+  forecolor  . . . . . . . . . .	Byte	 bp + 00000008
+  backcolor  . . . . . . . . . .	Byte	 bp + 0000000C
+SetConsoleCursorInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleCursorPosition . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleMode . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleScreenBufferSize . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleTextAttribute  . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleTitleA . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetConsoleWindowInfo . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetFilePointer . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetLocalTime . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SetTextColor . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+ShiftDown  . . . . . . . . . . .	P Near	 00000233 _TEXT	Length= 00000050 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 0000023F _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 00000250 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 00000279 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000282 _TEXT	
+ShiftLeft  . . . . . . . . . . .	P Near	 000001E4 _TEXT	Length= 0000004F Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000001F0 _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 00000201 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 00000229 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000232 _TEXT	
+ShiftRight . . . . . . . . . . .	P Near	 00000283 _TEXT	Length= 0000004F Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 0000028F _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 000002A0 _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 000002C8 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 000002D1 _TEXT	
+ShiftUp  . . . . . . . . . . . .	P Near	 000002D2 _TEXT	Length= 00000050 Public STDCALL
+  rowLoop  . . . . . . . . . . .	L Near	 000002DE _TEXT	
+  colLoop  . . . . . . . . . . .	L Near	 000002EF _TEXT	
+  innerDone  . . . . . . . . . .	L Near	 00000318 _TEXT	
+  done . . . . . . . . . . . . .	L Near	 00000321 _TEXT	
+ShowFPUStack . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Sleep  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+StrLength  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_compare  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_copy . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_length . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_trim . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+Str_ucase  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+SystemTimeToFileTime . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+TakeInput  . . . . . . . . . . .	P Near	 00000032 _TEXT	Length= 00000071 Public STDCALL
+WaitMsg  . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteBinB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteBin . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteChar  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteColorChar . . . . . . . . .	P Near	 00000512 _TEXT	Length= 0000005D Public STDCALL
+  char . . . . . . . . . . . . .	Byte	 bp + 00000008
+  forecolor  . . . . . . . . . .	Byte	 bp + 0000000C
+  backcolor  . . . . . . . . . .	Byte	 bp + 00000010
+WriteConsoleA  . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleOutputAttribute  . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteConsoleOutputCharacterA . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteDec . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteFile  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteFloat . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteHexB  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteHex . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteInt . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteStackFrameName  . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteStackFrame  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteString  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteToFile  . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+WriteWindowsMsg  . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External STDCALL
+appendReversed . . . . . . . . .	P Near	 00000610 _TEXT	Length= 00000030 Public STDCALL
+  appendValue  . . . . . . . . .	L Near	 00000616 _TEXT	
+  outOfLoop  . . . . . . . . . .	L Near	 0000063E _TEXT	
+append . . . . . . . . . . . . .	P Near	 000005E0 _TEXT	Length= 00000030 Public STDCALL
+  appendValue  . . . . . . . . .	L Near	 000005EB _TEXT	
+  outOfLoop  . . . . . . . . . .	L Near	 0000060E _TEXT	
+main . . . . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000032 Public STDCALL
+  mainLoop . . . . . . . . . . .	L Near	 0000000A _TEXT	
+  done . . . . . . . . . . . . .	L Near	 0000002B _TEXT	
+printf . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+scanf  . . . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+transferArray  . . . . . . . . .	P Near	 0000058E _TEXT	Length= 00000029 Public STDCALL
+  fill . . . . . . . . . . . . .	L Near	 00000599 _TEXT	
+transferTransposedArray  . . . .	P Near	 000005B7 _TEXT	Length= 00000029 Public STDCALL
+  fill . . . . . . . . . . . . .	L Near	 000005C2 _TEXT	
+wsprintfA  . . . . . . . . . . .	P Near	 00000000 FLAT	Length= 00000000 External C
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000003h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+ALT_MASK . . . . . . . . . . . .	Number	 00000003h   
+CAPSLOCK_ON  . . . . . . . . . .	Number	 00000080h   
+CREATE_ALWAYS  . . . . . . . . .	Number	 00000002h   
+CREATE_NEW . . . . . . . . . . .	Number	 00000001h   
+CTRL_MASK  . . . . . . . . . . .	Number	 0000000Ch   
+CreateFile . . . . . . . . . . .	Text   	 CreateFileA
+DO_NOT_SHARE . . . . . . . . . .	Number	 00000000h   
+ENABLE_ECHO_INPUT  . . . . . . .	Number	 00000004h   
+ENABLE_LINE_INPUT  . . . . . . .	Number	 00000002h   
+ENABLE_MOUSE_INPUT . . . . . . .	Number	 00000010h   
+ENABLE_PROCESSED_INPUT . . . . .	Number	 00000001h   
+ENABLE_PROCESSED_OUTPUT  . . . .	Number	 00000001h   
+ENABLE_WINDOW_INPUT  . . . . . .	Number	 00000008h   
+ENABLE_WRAP_AT_EOL_OUTPUT  . . .	Number	 00000002h   
+ENHANCED_KEY . . . . . . . . . .	Number	 00000100h   
+FALSE  . . . . . . . . . . . . .	Number	 00000000h   
+FILE_APPEND_DATA . . . . . . . .	Number	 00000004h   
+FILE_ATTRIBUTE_ARCHIVE . . . . .	Number	 00000020h   
+FILE_ATTRIBUTE_COMPRESSED  . . .	Number	 00000800h   
+FILE_ATTRIBUTE_DEVICE  . . . . .	Number	 00000040h   
+FILE_ATTRIBUTE_DIRECTORY . . . .	Number	 00000010h   
+FILE_ATTRIBUTE_ENCRYPTED . . . .	Number	 00004000h   
+FILE_ATTRIBUTE_HIDDEN  . . . . .	Number	 00000002h   
+FILE_ATTRIBUTE_NORMAL  . . . . .	Number	 00000080h   
+FILE_ATTRIBUTE_NOT_CONTENT_INDEXED .	Number	 00002000h   
+FILE_ATTRIBUTE_OFFLINE . . . . .	Number	 00001000h   
+FILE_ATTRIBUTE_READONLY  . . . .	Number	 00000001h   
+FILE_ATTRIBUTE_REPARSE_POINT . .	Number	 00000400h   
+FILE_ATTRIBUTE_SPARSE_FILE . . .	Number	 00000200h   
+FILE_ATTRIBUTE_SYSTEM  . . . . .	Number	 00000004h   
+FILE_ATTRIBUTE_TEMPORARY . . . .	Number	 00000100h   
+FILE_BEGIN . . . . . . . . . . .	Number	 00000000h   
+FILE_CURRENT . . . . . . . . . .	Number	 00000001h   
+FILE_DELETE_CHILD  . . . . . . .	Number	 00000040h   
+FILE_END . . . . . . . . . . . .	Number	 00000002h   
+FILE_READ_DATA . . . . . . . . .	Number	 00000001h   
+FILE_SHARE_DELETE  . . . . . . .	Number	 00000004h   
+FILE_SHARE_READ  . . . . . . . .	Number	 00000001h   
+FILE_SHARE_WRITE . . . . . . . .	Number	 00000002h   
+FILE_WRITE_DATA  . . . . . . . .	Number	 00000002h   
+FOCUS_EVENT  . . . . . . . . . .	Number	 00000010h   
+FORMAT_MESSAGE_ALLOCATE_BUFFER .	Number	 00000100h   
+FORMAT_MESSAGE_FROM_SYSTEM . . .	Number	 00001000h   
+FormatMessage  . . . . . . . . .	Text   	 FormatMessageA
+GENERIC_ALL  . . . . . . . . . .	Number	 10000000h   
+GENERIC_EXECUTE  . . . . . . . .	Number	 20000000h   
+GENERIC_READ . . . . . . . . . .	Number	 -80000000h   
+GENERIC_WRITE  . . . . . . . . .	Number	 40000000h   
+GetCommandLine . . . . . . . . .	Text   	 GetCommandLineA
+HANDLE . . . . . . . . . . . . .	Text   	 DWORD
+HEAP_GENERATE_EXCEPTIONS . . . .	Number	 00000004h   
+HEAP_GROWABLE  . . . . . . . . .	Number	 00000002h   
+HEAP_NO_SERIALIZE  . . . . . . .	Number	 00000001h   
+HEAP_REALLOC_IN_PLACE_ONLY . . .	Number	 00000010h   
+HEAP_ZERO_MEMORY . . . . . . . .	Number	 00000008h   
+IDABORT  . . . . . . . . . . . .	Number	 00000003h   
+IDCANCEL . . . . . . . . . . . .	Number	 00000002h   
+IDCLOSE  . . . . . . . . . . . .	Number	 00000008h   
+IDCONTINUE . . . . . . . . . . .	Number	 0000000Bh   
+IDHELP . . . . . . . . . . . . .	Number	 00000009h   
+IDIGNORE . . . . . . . . . . . .	Number	 00000005h   
+IDNO . . . . . . . . . . . . . .	Number	 00000007h   
+IDOK . . . . . . . . . . . . . .	Number	 00000001h   
+IDRETRY  . . . . . . . . . . . .	Number	 00000004h   
+IDTIMEOUT  . . . . . . . . . . .	Number	 00007D00h   
+IDTRYAGAIN . . . . . . . . . . .	Number	 0000000Ah   
+IDYES  . . . . . . . . . . . . .	Number	 00000006h   
+INVALID_HANDLE_VALUE . . . . . .	Number	 -00000001h   
+KBDOWN_FLAG  . . . . . . . . . .	Number	 00000001h   
+KEY_EVENT  . . . . . . . . . . .	Number	 00000001h   
+KEY_MASKS  . . . . . . . . . . .	Number	 0000001Fh   
+LEFT_ALT_PRESSED . . . . . . . .	Number	 00000002h   
+LEFT_CTRL_PRESSED  . . . . . . .	Number	 00000008h   
+MB_ABORTRETRYIGNORE  . . . . . .	Number	 00000002h   
+MB_APPLMODAL . . . . . . . . . .	Number	 00000000h   
+MB_CANCELTRYCONTINUE . . . . . .	Number	 00000006h   
+MB_DEFBUTTON1  . . . . . . . . .	Number	 00000000h   
+MB_DEFBUTTON2  . . . . . . . . .	Number	 00000100h   
+MB_DEFBUTTON3  . . . . . . . . .	Number	 00000200h   
+MB_DEFBUTTON4  . . . . . . . . .	Number	 00000300h   
+MB_HELP  . . . . . . . . . . . .	Number	 00004000h   
+MB_ICONASTERISK  . . . . . . . .	Number	 00000040h   
+MB_ICONERROR . . . . . . . . . .	Number	 00000010h   
+MB_ICONEXCLAMATION . . . . . . .	Number	 00000030h   
+MB_ICONHAND  . . . . . . . . . .	Number	 00000010h   
+MB_ICONINFORMATION . . . . . . .	Number	 00000040h   
+MB_ICONQUESTION  . . . . . . . .	Number	 00000020h   
+MB_ICONSTOP  . . . . . . . . . .	Number	 00000010h   
+MB_ICONWARNING . . . . . . . . .	Number	 00000030h   
+MB_OKCANCEL  . . . . . . . . . .	Number	 00000001h   
+MB_OK  . . . . . . . . . . . . .	Number	 00000000h   
+MB_RETRYCANCEL . . . . . . . . .	Number	 00000005h   
+MB_SYSTEMMODAL . . . . . . . . .	Number	 00001000h   
+MB_TASKMODAL . . . . . . . . . .	Number	 00002000h   
+MB_USERICON  . . . . . . . . . .	Number	 00000080h   
+MB_YESNOCANCEL . . . . . . . . .	Number	 00000003h   
+MB_YESNO . . . . . . . . . . . .	Number	 00000004h   
+MENU_EVENT . . . . . . . . . . .	Number	 00000008h   
+MOUSE_EVENT  . . . . . . . . . .	Number	 00000002h   
+MessageBox . . . . . . . . . . .	Text   	 MessageBoxA
+NULL . . . . . . . . . . . . . .	Number	 00000000h   
+NUMLOCK_ON . . . . . . . . . . .	Number	 00000020h   
+OPEN_ALWAYS  . . . . . . . . . .	Number	 00000004h   
+OPEN_EXISTING  . . . . . . . . .	Number	 00000003h   
+PeekConsoleInput . . . . . . . .	Text   	 PeekConsoleInputA
+RIGHT_ALT_PRESSED  . . . . . . .	Number	 00000001h   
+RIGHT_CTRL_PRESSED . . . . . . .	Number	 00000004h   
+ReadConsoleInput . . . . . . . .	Text   	 ReadConsoleInputA
+ReadConsole  . . . . . . . . . .	Text   	 ReadConsoleA
+SCROLLLOCK_ON  . . . . . . . . .	Number	 00000040h   
+SHIFT_MASK . . . . . . . . . . .	Number	 00000010h   
+SHIFT_PRESSED  . . . . . . . . .	Number	 00000010h   
+STD_ERROR_HANDLE . . . . . . . .	Number	 -0000000Ch   
+STD_INPUT_HANDLE . . . . . . . .	Number	 -0000000Ah   
+STD_OUTPUT_HANDLE  . . . . . . .	Number	 -0000000Bh   
+SetConsoleTitle  . . . . . . . .	Text   	 SetConsoleTitleA
+TAB  . . . . . . . . . . . . . .	Number	 00000009h   
+TRUE . . . . . . . . . . . . . .	Number	 00000001h   
+TRUNCATE_EXISTING  . . . . . . .	Number	 00000005h   
+VK_11  . . . . . . . . . . . . .	Number	 000000BDh   
+VK_12  . . . . . . . . . . . . .	Number	 000000BBh   
+VK_ADD . . . . . . . . . . . . .	Number	 0000006Bh   
+VK_BACK  . . . . . . . . . . . .	Number	 00000008h   
+VK_CANCEL  . . . . . . . . . . .	Number	 00000003h   
+VK_CAPITAL . . . . . . . . . . .	Number	 00000014h   
+VK_CLEAR . . . . . . . . . . . .	Number	 0000000Ch   
+VK_CONTROL . . . . . . . . . . .	Number	 00000011h   
+VK_DECIMAL . . . . . . . . . . .	Number	 0000006Eh   
+VK_DELETE  . . . . . . . . . . .	Number	 0000002Eh   
+VK_DIVIDE  . . . . . . . . . . .	Number	 0000006Fh   
+VK_DOWN  . . . . . . . . . . . .	Number	 00000028h   
+VK_END . . . . . . . . . . . . .	Number	 00000023h   
+VK_ESCAPE  . . . . . . . . . . .	Number	 0000001Bh   
+VK_EXECUTE . . . . . . . . . . .	Number	 0000002Bh   
+VK_F10 . . . . . . . . . . . . .	Number	 00000079h   
+VK_F11 . . . . . . . . . . . . .	Number	 0000007Ah   
+VK_F12 . . . . . . . . . . . . .	Number	 0000007Bh   
+VK_F13 . . . . . . . . . . . . .	Number	 0000007Ch   
+VK_F14 . . . . . . . . . . . . .	Number	 0000007Dh   
+VK_F15 . . . . . . . . . . . . .	Number	 0000007Eh   
+VK_F16 . . . . . . . . . . . . .	Number	 0000007Fh   
+VK_F17 . . . . . . . . . . . . .	Number	 00000080h   
+VK_F18 . . . . . . . . . . . . .	Number	 00000081h   
+VK_F19 . . . . . . . . . . . . .	Number	 00000082h   
+VK_F1  . . . . . . . . . . . . .	Number	 00000070h   
+VK_F20 . . . . . . . . . . . . .	Number	 00000083h   
+VK_F21 . . . . . . . . . . . . .	Number	 00000084h   
+VK_F22 . . . . . . . . . . . . .	Number	 00000085h   
+VK_F23 . . . . . . . . . . . . .	Number	 00000086h   
+VK_F24 . . . . . . . . . . . . .	Number	 00000087h   
+VK_F2  . . . . . . . . . . . . .	Number	 00000071h   
+VK_F3  . . . . . . . . . . . . .	Number	 00000072h   
+VK_F4  . . . . . . . . . . . . .	Number	 00000073h   
+VK_F5  . . . . . . . . . . . . .	Number	 00000074h   
+VK_F6  . . . . . . . . . . . . .	Number	 00000075h   
+VK_F7  . . . . . . . . . . . . .	Number	 00000076h   
+VK_F8  . . . . . . . . . . . . .	Number	 00000077h   
+VK_F9  . . . . . . . . . . . . .	Number	 00000078h   
+VK_HELP  . . . . . . . . . . . .	Number	 0000002Fh   
+VK_HOME  . . . . . . . . . . . .	Number	 00000024h   
+VK_INSERT  . . . . . . . . . . .	Number	 0000002Dh   
+VK_LBUTTON . . . . . . . . . . .	Number	 00000001h   
+VK_LCONTROL  . . . . . . . . . .	Number	 000000A2h   
+VK_LEFT  . . . . . . . . . . . .	Number	 00000025h   
+VK_LMENU . . . . . . . . . . . .	Number	 000000A4h   
+VK_LSHIFT  . . . . . . . . . . .	Number	 000000A0h   
+VK_MENU  . . . . . . . . . . . .	Number	 00000012h   
+VK_MULTIPLY  . . . . . . . . . .	Number	 0000006Ah   
+VK_NEXT  . . . . . . . . . . . .	Number	 00000022h   
+VK_NUMLOCK . . . . . . . . . . .	Number	 00000090h   
+VK_NUMPAD0 . . . . . . . . . . .	Number	 00000060h   
+VK_NUMPAD1 . . . . . . . . . . .	Number	 00000061h   
+VK_NUMPAD2 . . . . . . . . . . .	Number	 00000062h   
+VK_NUMPAD3 . . . . . . . . . . .	Number	 00000063h   
+VK_NUMPAD4 . . . . . . . . . . .	Number	 00000064h   
+VK_NUMPAD5 . . . . . . . . . . .	Number	 00000065h   
+VK_NUMPAD6 . . . . . . . . . . .	Number	 00000066h   
+VK_NUMPAD7 . . . . . . . . . . .	Number	 00000067h   
+VK_NUMPAD8 . . . . . . . . . . .	Number	 00000068h   
+VK_NUMPAD9 . . . . . . . . . . .	Number	 00000069h   
+VK_PAUSE . . . . . . . . . . . .	Number	 00000013h   
+VK_PRINT . . . . . . . . . . . .	Number	 0000002Ah   
+VK_PRIOR . . . . . . . . . . . .	Number	 00000021h   
+VK_RBUTTON . . . . . . . . . . .	Number	 00000002h   
+VK_RCONTROL  . . . . . . . . . .	Number	 000000A3h   
+VK_RETURN  . . . . . . . . . . .	Number	 0000000Dh   
+VK_RIGHT . . . . . . . . . . . .	Number	 00000027h   
+VK_RMENU . . . . . . . . . . . .	Number	 000000A5h   
+VK_RSHIFT  . . . . . . . . . . .	Number	 000000A1h   
+VK_SCROLL  . . . . . . . . . . .	Number	 00000091h   
+VK_SEPARATER . . . . . . . . . .	Number	 0000006Ch   
+VK_SHIFT . . . . . . . . . . . .	Number	 00000010h   
+VK_SNAPSHOT  . . . . . . . . . .	Number	 0000002Ch   
+VK_SPACE . . . . . . . . . . . .	Number	 00000020h   
+VK_SUBTRACT  . . . . . . . . . .	Number	 0000006Dh   
+VK_TAB . . . . . . . . . . . . .	Number	 00000009h   
+VK_UP  . . . . . . . . . . . . .	Number	 00000026h   
+WINDOW_BUFFER_SIZE_EVENT . . . .	Number	 00000004h   
+WriteConsoleOutputCharacter  . .	Text   	 WriteConsoleOutputCharacterA
+WriteConsole . . . . . . . . . .	Text   	 WriteConsoleA
+black  . . . . . . . . . . . . .	Number	 00000000h   
+blue . . . . . . . . . . . . . .	Number	 00000001h   
+brown  . . . . . . . . . . . . .	Number	 00000006h   
+cellColors . . . . . . . . . . .	Byte	 0000001F _DATA	
+cellVals . . . . . . . . . . . .	Byte	 0000002F _DATA	
+colIndex . . . . . . . . . . . .	DWord	 00000055 _DATA	
+colors . . . . . . . . . . . . .	Byte	 0000000D _DATA	
+cyan . . . . . . . . . . . . . .	Number	 00000003h   
+exit . . . . . . . . . . . . . .	Text   	 INVOKE ExitProcess,0
+gameOver . . . . . . . . . . . .	Byte	 00000075 _DATA	
+gray . . . . . . . . . . . . . .	Number	 00000008h   
+green  . . . . . . . . . . . . .	Number	 00000002h   
+key  . . . . . . . . . . . . . .	Byte	 00000040 _DATA	
+lightBlue  . . . . . . . . . . .	Number	 00000009h   
+lightCyan  . . . . . . . . . . .	Number	 0000000Bh   
+lightGray  . . . . . . . . . . .	Number	 00000007h   
+lightGreen . . . . . . . . . . .	Number	 0000000Ah   
+lightMagenta . . . . . . . . . .	Number	 0000000Dh   
+lightRed . . . . . . . . . . . .	Number	 0000000Ch   
+magenta  . . . . . . . . . . . .	Number	 00000005h   
+numCell  . . . . . . . . . . . .	Number	 0000000Fh   
+putCell  . . . . . . . . . . . .	Byte	 00000076 _DATA	
+ranCell  . . . . . . . . . . . .	DWord	 00000000 _DATA	
+red  . . . . . . . . . . . . . .	Number	 00000004h   
+result . . . . . . . . . . . . .	Byte	 00000005 _DATA	
+rowH . . . . . . . . . . . . . .	Number	 00000004h   
+rowIdx . . . . . . . . . . . . .	DWord	 00000041 _DATA	
+score  . . . . . . . . . . . . .	Byte	 00000004 _DATA	
+shiftArray . . . . . . . . . . .	DWord	 00000045 _DATA	
+shiftDirection . . . . . . . . .	Byte	 0000003F _DATA	
+vals . . . . . . . . . . . . . .	Byte	 00000016 _DATA	
+white  . . . . . . . . . . . . .	Number	 0000000Fh   
+winString  . . . . . . . . . . .	Byte	 00000059 _DATA	
+wsprintf . . . . . . . . . . . .	Text   	 wsprintfA
+yellow . . . . . . . . . . . . .	Number	 0000000Eh   
+
+	   0 Warnings
+	   30 Errors
